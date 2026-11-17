@@ -3,6 +3,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 void main() {
+  for (final detectMoves in [false, true]) {
+    testWidgets(
+      'duplicate items remain ordered with detectMoves=$detectMoves',
+      (tester) async {
+        final controller = AnimatedListController();
+        Widget list(List<int> items) => MaterialApp(
+          home: AutomaticAnimatedListView<int>(
+            list: items,
+            listController: controller,
+            comparator: AnimatedListDiffListComparator<int>(
+              sameItem: (a, b) => a == b,
+              sameContent: (a, b) => a == b,
+            ),
+            itemBuilder: (context, value, data) => Text('Item $value'),
+            itemExtent: 40,
+            detectMoves: detectMoves,
+          ),
+        );
+
+        for (final items in [
+          [1, 2, 1, 3, 1],
+          [1, 1, 2, 1, 3, 1],
+          [3, 1, 2, 1],
+          [1, 2, 1],
+          <int>[],
+          [1, 1, 1],
+        ]) {
+          await tester.pumpWidget(list(items));
+          await _settle(tester);
+          final rows = find.byType(Text);
+          expect(
+            tester.widgetList<Text>(rows).map((text) => text.data),
+            orderedEquals(items.map((value) => 'Item $value')),
+          );
+          final positions = tester
+              .widgetList<Text>(rows)
+              .map((text) => tester.getTopLeft(find.byWidget(text)).dy)
+              .toList();
+          expect(positions, orderedEquals([...positions]..sort()));
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
   testWidgets(
     'replacing sliver types and reparenting safely rebinds a controller',
     (tester) async {

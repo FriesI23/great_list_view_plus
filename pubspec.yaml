@@ -19,9 +19,9 @@ dependencies:
   flutter:
     sdk: flutter
   collection: ^1.19.1
-  diffutil_dart: ^3.0.0
+  diffutil_dart: ^5.0.0
   material_ui: ^1.11.1
-  worker_manager: ^5.0.3
+  worker_manager: ^7.2.9
 
 dev_dependencies:
   cupertino_ui: ^1.1.7

@@ -11,14 +11,14 @@ const int kSpawnNewIsolateCount = 500;
 
 /// Optional startup preparation for animated list updates.
 abstract final class GreatListView {
-  /// Prepares background workers before the first large list diff.
+  /// Initializes background workers before the first large list diff.
   ///
   /// Call once before any background diff, typically before `runApp`, when
   /// first-update latency matters. Without this call, workers start on demand.
   /// By default a background diff is used when the old and new list lengths
   /// total at least [kSpawnNewIsolateCount]. Initialization errors propagate to
   /// the caller.
-  static Future<void> warmUp() => Executor().warmUp();
+  static Future<void> init() => workerManager.init();
 }
 
 typedef AnimatedListDiffBuilder<T> = Widget Function(
@@ -107,11 +107,20 @@ class AnimatedListDiffDispatcher<T> {
     _processingList = newList;
 
     _DiffResultDispatcher dr;
-    var futureOr = _computeDiffs(_currentList, newList, detectMoves);
-    if (futureOr is Future<_DiffResultDispatcher?>) {
-      dr = await futureOr;
-    } else {
-      dr = futureOr;
+    try {
+      final futureOr = _computeDiffs(_currentList, newList, detectMoves);
+      if (futureOr is Future<_DiffResultDispatcher>) {
+        dr = await futureOr;
+      } else {
+        dr = futureOr;
+      }
+    } on CanceledError {
+      return; // A newer list superseded this diff.
+    } catch (_) {
+      if (identical(newList, _processingList)) {
+        _processingList = null;
+      }
+      rethrow;
     }
 
     if (newList != _processingList || _processingList == null) {
@@ -215,27 +224,13 @@ class AnimatedListDiffDispatcher<T> {
 
     if (comparator.lengthOf(oldList) + comparator.lengthOf(newList) >=
         spawnNewInsolateCount) {
-      final completer = Completer<_DiffResultDispatcher>();
-      _cancelable =
-          Executor().execute<
-              T,
-              T,
-              AnimatedListDiffBaseComparator<T>,
-              bool,
-              _DiffResultDispatcher,
-              dynamic
-            >(
-              arg1: oldList,
-              arg2: newList,
-              arg3: comparator,
-              arg4: detectMoves,
-              fun4: _calculateDiff,
-            )
-            ..then((value) {
-              _cancelable = null;
-              completer.complete(value);
-            }).catchError((dynamic e) {});
-      return completer.future;
+      final task = _executeDiff(oldList, newList, comparator, detectMoves);
+      _cancelable = task;
+      return task.future.whenComplete(() {
+        if (identical(_cancelable, task)) {
+          _cancelable = null;
+        }
+      });
     } else {
       return _calculateDiff(oldList, newList, comparator, detectMoves);
     }
@@ -250,13 +245,23 @@ class AnimatedListDiffDispatcher<T> {
   }
 }
 
+// Create the worker closure outside the dispatcher so it cannot capture the
+// controller or widget builders, which need to stay on the UI isolate.
+Cancelable<_DiffResultDispatcher> _executeDiff<T>(
+  T oldList,
+  T newList,
+  AnimatedListDiffBaseComparator<T> comparator,
+  bool detectMoves,
+) => workerManager.execute(
+  () => _calculateDiff(oldList, newList, comparator, detectMoves),
+);
+
 _DiffResultDispatcher _calculateDiff<T>(
   T oldList,
   T newList,
   AnimatedListDiffBaseComparator<T> comparator,
-  bool detectMoves, [
-  TypeSendPort<dynamic>? port,
-]) {
+  bool detectMoves,
+) {
   return _DiffResultDispatcher(
     calculateDiff<T>(
       _DiffDelegate<T>(

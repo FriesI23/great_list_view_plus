@@ -42,15 +42,15 @@ import 'package:great_list_view_plus/great_list_view_plus.dart';
 Use this single entry point instead of the previous list and auxiliary imports.
 `worker_manager` is no longer re-exported; declare it directly if your app uses it.
 
-## Optional warm-up
+## Optional initialization
 
-If the first large list update must respond quickly, call `GreatListView.warmUp()`
+If the first large list update must respond quickly, call `GreatListView.init()`
 once before `runApp()`. By default background diffing starts when the old and new
 list lengths total at least 500. Without this call, workers start on demand.
 
 ```dart
 Future<void> main() async {
-  await GreatListView.warmUp(); // Optional, before the first large list diff.
+  await GreatListView.init(); // Optional, before the first large list diff.
   runApp(const MyApp());
 }
 ```
