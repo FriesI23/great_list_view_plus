@@ -1,4 +1,4 @@
-part of 'core.dart';
+import 'package:flutter/rendering.dart';
 
 mixin MultiContainerRenderObjectMixin<
   ChildType extends RenderObject,

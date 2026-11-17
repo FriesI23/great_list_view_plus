@@ -1,8 +1,18 @@
-// These existing public render interfaces use private implementation types.
-// Keep them source compatible with great_list_view 0.2.3.
-// ignore_for_file: library_private_types_in_public_api
+import 'dart:collection';
+import 'dart:math' as math;
 
-part of 'core.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
+
+import '../core.dart';
+import '../list/delegates.dart';
+import '../list/diagnostics.dart';
+import '../list/interval_manager.dart';
+import '../list/interval_model.dart';
+import '../list/intervals.dart';
+import 'rendering_contracts.dart';
+import 'sliver_list.dart';
+import 'sliver_multi_box_adaptor.dart';
 
 /// An element that lazily builds children for a [SliverWithKeepAliveWidget].
 ///
@@ -12,10 +22,7 @@ part of 'core.dart';
 /// This class takes the implementation of the standard [SliverMultiBoxAdaptorElement] class
 /// and adds support for animations and reordering feature.
 class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
-    implements
-        MultiRenderSliverBoxChildManager,
-        _ControllerInterface,
-        _ListIntervalInterface {
+    implements AnimatedSliverChildManager, AnimatedListControllerDelegate {
   /// Creates an element that lazily builds children for the given widget with
   /// support for animations and reordering.
   AnimatedSliverMultiBoxAdaptorElement(
@@ -26,6 +33,13 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// Support for the method didChangeDependencies like in [State.didChangeDependencies].
   bool _didChangeDependencies = false;
+  bool _delegateChanged = false;
+
+  @override
+  BuildContext get context => this;
+
+  @override
+  AnimatedListController get listController => widget.listController;
 
   @override
   AnimatedSliverMultiBoxAdaptorWidget get widget =>
@@ -35,7 +49,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   AnimatedRenderSliverMultiBoxAdaptor get renderObject =>
       super.renderObject as AnimatedRenderSliverMultiBoxAdaptor;
 
-  _IntervalManager get _intervalListManager => renderObject.intervalManager;
+  IntervalManager get _intervalListManager => renderObject.intervalManager;
 
   /// This method has been overridden to give the render object the `didChangeDependencies` method
   /// and to link this list view to its controller.
@@ -43,15 +57,27 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   void mount(Element? parent, dynamic newSlot) {
     super.mount(parent, newSlot);
     renderObject.didChangeDependencies(this);
-    widget.listController._setInterface(this);
+    ListControllerBinding.attach(widget.listController, this);
   }
 
   /// This method has been overridden to give the render object a `dispose` method and to unlink
   /// this list view from its controller.
   @override
   void unmount() {
-    widget.listController._unsetInterface(this);
+    ListControllerBinding.detach(widget.listController, this);
     super.unmount();
+  }
+
+  @override
+  void deactivate() {
+    ListControllerBinding.detach(widget.listController, this);
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    ListControllerBinding.attach(widget.listController, this);
   }
 
   @override
@@ -63,12 +89,13 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   @override
   void update(covariant AnimatedSliverMultiBoxAdaptorWidget newWidget) {
     final oldWidget = widget;
+    _delegateChanged = newWidget.delegate != oldWidget.delegate;
     super.update(newWidget);
     if (newWidget.listController != oldWidget.listController) {
-      oldWidget.listController._unsetInterface(this);
-      newWidget.listController._setInterface(this);
+      ListControllerBinding.detach(oldWidget.listController, this);
+      ListControllerBinding.attach(newWidget.listController, this);
     }
-    if (_intervalListManager.hasPendingUpdates) {
+    if (_delegateChanged || _intervalListManager.hasPendingUpdates) {
       performRebuild();
     }
   }
@@ -77,8 +104,9 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   /// all the pending [updates].
   /// This method can return `null` if the child no longer exists (for example,
   /// all elements of a remove interval disappear when it becomes a resizing interval).
-  _ReindexResult oldIndexToNewIndex(int? index, _PopUpList? popUpList) {
-    var needsRebuild = false;
+  @override
+  ChildReindexResult oldIndexToNewIndex(int? index, PopUpList? popUpList) {
+    var needsRebuild = _delegateChanged;
     var clearLayoutOffset = false;
     var discardElement = false;
 
@@ -151,7 +179,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
         index += upd.skipCount;
       }
     }
-    return _ReindexResult(
+    return ChildReindexResult(
       index,
       needsRebuild,
       discardElement,
@@ -166,7 +194,8 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
     return "{${l.join(', ')}}";
   }
 
-  Widget? build(int index, {bool measureOnly = false, _PopUpList? popUpList}) {
+  @override
+  Widget? build(int index, {bool measureOnly = false, PopUpList? popUpList}) {
     if (popUpList == null) {
       final count = _intervalListManager.list.buildCount;
       if (index < 0 || index >= count) return null;
@@ -182,14 +211,15 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
           as MultiSliverMultiBoxAdaptorParentData?;
 
   int? _currentlyUpdatingChildIndex;
-  _PopUpList? _currentlyUpdatingPopUpList;
+  PopUpList? _currentlyUpdatingPopUpList;
 
-  final Map<_PopUpList?, SplayTreeMap<int, Element?>> _childElements =
-      <_PopUpList?, SplayTreeMap<int, Element?>>{};
+  final Map<PopUpList?, SplayTreeMap<int, Element?>> _childElements =
+      <PopUpList?, SplayTreeMap<int, Element?>>{};
 
   RenderBox? _currentBeforeChild;
 
-  Iterable<_PopUpList> get managedPopUpLists => _childElements.keys.nonNulls;
+  @override
+  Iterable<PopUpList> get managedPopUpLists => _childElements.keys.nonNulls;
 
   SplayTreeMap<int, Element?> get _mainChildElements => _childElements[null]!;
 
@@ -200,7 +230,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   /// Copied from [SliverMultiBoxAdaptorElement.createChild].
   @override
   void createChild(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     int index, {
     required RenderBox? after,
   }) {
@@ -222,7 +252,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
         newChild = updateChild(
           childElements[index],
           build(index, popUpList: popUpList),
-          _Slot(index, popUpList),
+          ChildSlot(index, popUpList),
         );
       } finally {
         _currentlyUpdatingChildIndex = null;
@@ -238,7 +268,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// Copied from [SliverMultiBoxAdaptorElement.removeChild].
   @override
-  void removeChild(_PopUpList? popUpList, RenderBox child) {
+  void removeChild(PopUpList? popUpList, RenderBox child) {
     final index = renderObject.indexOf(child);
     final popUpList =
         (child.parentData! as MultiSliverMultiBoxAdaptorParentData).key;
@@ -254,7 +284,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
         final result = updateChild(
           childElements[index],
           null,
-          _Slot(index, popUpList),
+          ChildSlot(index, popUpList),
         );
         assert(result == null);
       } finally {
@@ -311,14 +341,14 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// Copied from [SliverMultiBoxAdaptorElement.didStartLayout].
   @override
-  void didStartLayout(_PopUpList? popUpList) {
+  void didStartLayout(PopUpList? popUpList) {
     assert(debugAssertChildListLocked());
   }
 
   /// Copied from [SliverMultiBoxAdaptorElement.didFinishLayout].
   // TODO: to be changed; firstChild and lastChild should be used and item index conversion applied.
   @override
-  void didFinishLayout(_PopUpList? popUpList) {
+  void didFinishLayout(PopUpList? popUpList) {
     assert(debugAssertChildListLocked());
     if (popUpList == null) {
       final firstIndex = _mainChildElements.firstKey() ?? 0;
@@ -346,13 +376,13 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   /// It considers all pending build updates to move each old last rendered child
   /// to its new position.
   ///
-  /// It also calls the [_AnimatedRenderSliverMultiBoxAdaptor.didChangeDependencies] method
+  /// It also calls the [AnimatedRenderSliverMultiBoxAdaptor.didChangeDependencies] method
   /// if a dependency has been changed.
   @override
   void performRebuild() {
-    _dbgBegin('performRebuild');
+    listLogBegin('performRebuild');
     for (var e in _intervalListManager.updates) {
-      _dbgPrint(e.toString());
+      listLogPrint(e.toString());
     }
 
     if (_didChangeDependencies) {
@@ -368,24 +398,24 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
       // moving children will temporary violate the integrity
       renderObject.debugChildIntegrityEnabled = false;
 
-      final results = <_PopUpList?, SplayTreeMap<int, _RebuildResult>>{};
+      final results = <PopUpList?, SplayTreeMap<int, _RebuildResult>>{};
       final removeList = <Element>[];
 
-      final newChildrenMap = <_PopUpList?, SplayTreeMap<int, Element?>>{};
+      final newChildrenMap = <PopUpList?, SplayTreeMap<int, Element?>>{};
 
-      Element? update(Element? element, _ReindexResult r) {
+      Element? update(Element? element, ChildReindexResult r) {
         if (r.needsRebuild) {
           if (r.discardElement && element != null) {
-            _dbgPrint(
+            listLogPrint(
               'updating ${debugElement(element)} discard and update...',
             );
             element = updateChild(
               element,
               null,
-              _Slot(r.newIndex!, r.popUpList),
+              ChildSlot(r.newIndex!, r.popUpList),
             );
           } else {
-            _dbgPrint('updating ${debugElement(element)} update...');
+            listLogPrint('updating ${debugElement(element)} update...');
           }
           _currentlyUpdatingChildIndex = r.newIndex;
           _currentlyUpdatingPopUpList = r.popUpList;
@@ -393,16 +423,16 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
           element = updateChild(
             element,
             widget,
-            _Slot(r.newIndex!, r.popUpList),
+            ChildSlot(r.newIndex!, r.popUpList),
           )!;
           _currentlyUpdatingChildIndex = null;
           _currentlyUpdatingPopUpList = null;
-          _dbgPrint('    ....updated into ${debugElement(element)}');
+          listLogPrint('    ....updated into ${debugElement(element)}');
         } else {
           assert(!r.discardElement);
-          final newSlot = _Slot(r.newIndex!, r.popUpList);
+          final newSlot = ChildSlot(r.newIndex!, r.popUpList);
           if (newSlot != element?.slot) {
-            _dbgPrint(
+            listLogPrint(
               'updating ${debugElement(element)} slot only: ${element?.slot} -> $newSlot',
             );
           }
@@ -416,12 +446,12 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
       }
 
       void considerElements(
-        _PopUpList? popUpList,
+        PopUpList? popUpList,
         SplayTreeMap<int, Element?> childElements,
       ) {
-        _dbgBegin('considering popUpList=${popUpList?.debugId}');
-        _dbgPrint('children=${_debugChildrenList(childElements)}');
-        _dbgPrint('renderBoxes=${renderObject.debugRenderBoxes(popUpList)}');
+        listLogBegin('considering popUpList=${popUpList?.debugId}');
+        listLogPrint('children=${_debugChildrenList(childElements)}');
+        listLogPrint('renderBoxes=${renderObject.debugRenderBoxes(popUpList)}');
         for (int? index in childElements.keys.toList()) {
           var element = childElements[index]!;
 
@@ -429,11 +459,11 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
           if (r.newIndex == null) {
             removeList.add(element);
-            _dbgPrint(
+            listLogPrint(
               'element ${debugElement(element)} scheduled for removing',
             );
           } else {
-            _dbgPrint(
+            listLogPrint(
               'element ${debugElement(element)} from pl(${popUpList?.debugId}):$index -> pl(${r.popUpList?.debugId}}):${r.newIndex}',
             );
             results.putIfAbsent(
@@ -445,7 +475,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
             );
           }
         }
-        _dbgEnd();
+        listLogEnd();
       }
 
       _childElements.forEach((popUpList, elements) {
@@ -464,14 +494,16 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
         _currentBeforeChild = null;
 
-        _dbgBegin('finalizing popUpList=${popUpList?.debugId}');
+        listLogBegin('finalizing popUpList=${popUpList?.debugId}');
         for (final index in results[popUpList]!.keys) {
           final rr = results[popUpList]![index]!;
           final r = rr.result;
           var childParentData = _parentDataOf(rr.element);
 
           if (childParentData != null && r.clearLayoutOffset) {
-            _dbgPrint('clearing layout offset of ${debugElement(rr.element)}');
+            listLogPrint(
+              'clearing layout offset of ${debugElement(rr.element)}',
+            );
             childParentData.layoutOffset = null;
           }
 
@@ -493,49 +525,50 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
         _childElements.putIfAbsent(popUpList, () => newChildren);
         _childElements[popUpList] = newChildren;
-        _dbgPrint(
+        listLogPrint(
           'result childrenList: ${_debugChildrenList(_childElements[popUpList]!)}',
         );
 
         if (newChildren.isEmpty && popUpList != null) {
-          _dbgPrint('dismissing popup ${popUpList.debugId}');
+          listLogPrint('dismissing popup ${popUpList.debugId}');
           _childElements.remove(popUpList);
         }
 
-        _dbgEnd();
+        listLogEnd();
       }
 
-      _dbgBegin('result RenderBoxes');
+      listLogBegin('result RenderBoxes');
       for (final popUpList in results.keys) {
-        _dbgPrint(
+        listLogPrint(
           'popup ${popUpList?.debugId}: ${renderObject.debugRenderBoxes(popUpList)}',
         );
       }
-      _dbgEnd();
+      listLogEnd();
 
       for (final element in removeList) {
-        _dbgPrint('removing ${debugElement(element)}');
-        final slot = element.slot as _Slot;
+        listLogPrint('removing ${debugElement(element)}');
+        final slot = element.slot as ChildSlot;
         _currentlyUpdatingChildIndex = slot.index;
         _currentlyUpdatingPopUpList = slot.popUpList;
         updateChild(element, null, slot);
       }
     } catch (e) {
-      _dbgPrint('EXCEPTION!!!!');
+      listLogPrint('EXCEPTION!!!!');
     } finally {
       _currentlyUpdatingChildIndex = null;
       _currentlyUpdatingPopUpList = null;
       renderObject.debugChildIntegrityEnabled = true;
       _intervalListManager.clearUpdates();
+      _delegateChanged = false;
       // renderObject.removeEmptyKeys();
-      _dbgEnd();
+      listLogEnd();
     }
   }
 
   /// Copied from [SliverMultiBoxAdaptorElement.insertRenderObjectChild].
   /// This method has been changed to prevent inserting off-list elements into the children list.
   @override
-  void insertRenderObjectChild(covariant RenderObject child, _Slot? slot) {
+  void insertRenderObjectChild(covariant RenderObject child, ChildSlot? slot) {
     if (_creatingDisposableElement) {
       assert(slot == null);
       renderObject.setupParentData(child);
@@ -560,10 +593,10 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   /// Copied from [SliverMultiBoxAdaptorElement.removeRenderObjectChild].
   /// This method has been changed to prevent the removal of unlisted children (eg off-list elements).
   @override
-  void removeRenderObjectChild(covariant RenderObject child, _Slot? slot) {
+  void removeRenderObjectChild(covariant RenderObject child, ChildSlot? slot) {
     if (_creatingDisposableElement) {
       assert(slot == null);
-      renderObject._dropDisposableChild(child);
+      renderObject.dropDisposableChild(child);
       return;
     }
     assert(_creatingDisposableElement || _currentlyUpdatingChildIndex != null);
@@ -577,8 +610,8 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   @override
   void moveRenderObjectChild(
     covariant RenderObject child,
-    _Slot? oldSlot,
-    _Slot? newSlot,
+    ChildSlot? oldSlot,
+    ChildSlot? newSlot,
   ) {
     assert(newSlot != null);
     assert(_currentlyUpdatingChildIndex == newSlot!.index);
@@ -659,21 +692,22 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   }
 
   // Searchs and returns the build index of specified item by its [context], if it can be found.
-  _Slot? buildIndexFromContext(BuildContext context) {
+  @override
+  ChildSlot? buildIndexFromContext(BuildContext context) {
     if (context is! Element) return null;
-    _Slot? slot;
-    if (context.slot is! _Slot) {
+    ChildSlot? slot;
+    if (context.slot is! ChildSlot) {
       context.visitAncestorElements((element) {
         if (element is AnimatedSliverMultiBoxAdaptorElement) return false;
-        if (element.slot is _Slot) {
-          slot = element.slot as _Slot;
+        if (element.slot is ChildSlot) {
+          slot = element.slot as ChildSlot;
           return false;
         }
         return true;
       });
-      if (slot == null || slot is! _Slot) return null;
+      if (slot == null || slot is! ChildSlot) return null;
     } else {
-      slot = context.slot as _Slot;
+      slot = context.slot as ChildSlot;
     }
     assert(() {
       AnimatedSliverMultiBoxAdaptorElement? e;
@@ -693,6 +727,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// It creates an disposable off-list element built with the specified [widget],
   /// and executes the [callback]. Eventually, the child is disposed.
+  @override
   void disposableElement(Widget widget, void Function(RenderBox) callback) {
     owner!.lockState(() {
       _currentlyUpdatingChildIndex = null;
@@ -735,7 +770,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// Notifies that the resizing interval has changed its size by the delta amount.
   @override
-  void resizingIntervalUpdated(_AnimatedSpaceInterval interval, double delta) {
+  void resizingIntervalUpdated(AnimatedSpaceInterval interval, double delta) {
     renderObject.resizingIntervalUpdated(interval, delta);
   }
 
@@ -743,8 +778,8 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   /// You have to provide a [builder] to build the `i`-th widget.
   /// The calculation is asynchronous and can be [cancelled].
   @override
-  Future<_Measure> measureItems(
-    _Cancelled? cancelled,
+  Future<ItemMeasure> measureItems(
+    Cancelled? cancelled,
     int count,
     IndexedWidgetBuilder builder, [
     double startingSize = 0,
@@ -771,7 +806,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   }
 
   @override
-  _SizeResult? getItemSizesFromSliverList(int buildFrom, int buildTo) {
+  ItemSizeRange? getItemSizesFromSliverList(int buildFrom, int buildTo) {
     return renderObject.getItemSizesFromSliverList(buildFrom, buildTo);
   }
 
@@ -872,7 +907,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
   /// See [AnimatedListController.getItemVisibleSize].
   @override
-  _PercentageSize? getItemVisibleSize(int index) {
+  AnimatedListItemVisibility? getItemVisibleSize(int index) {
     final box = renderObject.computeItemBox(index, true, true);
     if (box != null) {
       final c = renderObject.constraints;
@@ -884,7 +919,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
 
       final r1 = (isHorizontal ? box.left : box.top).clamp(v1, v2);
       final r2 = (isHorizontal ? box.right : box.bottom).clamp(v1, v2);
-      return _PercentageSize(
+      return AnimatedListItemVisibility(
         math.max(0.0, r2 - r1),
         (isHorizontal ? box.width : box.height),
       );
@@ -893,11 +928,11 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   }
 
   @override
-  _Measure estimateLayoutOffset(
+  ItemMeasure estimateLayoutOffset(
     int buildIndex,
     int childCount, {
     double? time,
-    _MovingPopUpList? popUpList,
+    MovingPopUpList? popUpList,
   }) {
     return renderObject.estimateLayoutOffset(
       buildIndex,
@@ -907,6 +942,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
     );
   }
 
+  @override
   RenderBox? renderBoxAt(int buildIndex) =>
       _childElements[null]?[buildIndex]?.renderObject as RenderBox?;
 
@@ -914,12 +950,7 @@ class AnimatedSliverMultiBoxAdaptorElement extends RenderObjectElement
   void reorderCancel() => renderObject.reorderStop(true);
 
   @override
-  void test() {
-    _intervalListManager.test();
-  }
-
-  @override
-  List<_PopUpList> get listOfPopUps => _intervalListManager.listOfPopUps;
+  List<PopUpList> get listOfPopUps => _intervalListManager.listOfPopUps;
 }
 
 /*
@@ -938,286 +969,11 @@ Widget _createErrorWidget(Object exception, StackTrace stackTrace) {
   return ErrorWidget.builder(details);
 }
 
-class _ReindexResult {
-  const _ReindexResult(
-    this.newIndex,
-    this.needsRebuild,
-    this.discardElement,
-    this.clearLayoutOffset,
-    this.popUpList,
-  ); //, this.droppedBy);
-
-  /// The new index of the child.
-  final int? newIndex;
-
-  /// Marks the child as to be rebuilt.
-  final bool needsRebuild;
-
-  /// Marks the child as to be rebuilt as new, discarding its previous [Element].
-  final bool discardElement;
-
-  /// Marks to invalidate its current layout offset (especially used by new resizing intervals in order
-  /// to forget the layout offset of the previously built child, to avoid annoying scroll jumps when
-  /// these intervals are not accurately measured).
-  final bool clearLayoutOffset;
-
-  /// La [_PopUpList] nella quale il child ricadrà a valle degli update.
-  final _PopUpList? popUpList;
-
-  @override
-  String toString() =>
-      '(${['newIndex=$newIndex', if (needsRebuild) 'NEEDS_REBUILD', if (discardElement) 'discardElement', if (clearLayoutOffset) 'clearLayoutOffset', if (popUpList != null) 'popUpList=$popUpList'].join(', ')})';
-}
-
 class _RebuildResult {
-  final _ReindexResult result;
+  final ChildReindexResult result;
   final Element element;
 
-  _PopUpList? get toPopUpList => result.popUpList;
+  PopUpList? get toPopUpList => result.popUpList;
 
   const _RebuildResult(this.result, this.element);
-}
-
-class _Slot {
-  final int index;
-  final _PopUpList? popUpList;
-
-  const _Slot(this.index, this.popUpList);
-
-  @override
-  bool operator ==(Object s) =>
-      s is _Slot && s.index == index && s.popUpList == popUpList;
-
-  @override
-  int get hashCode => popUpList.hashCode ^ index;
-
-  @override
-  String toString() => '($index,${popUpList?.debugId})';
-}
-
-/*
- * Controller
- */
-
-abstract class _ControllerInterface {
-  void notifyChangedRange(
-    int from,
-    int count,
-    AnimatedWidgetBuilder changeItemBuilder,
-  );
-
-  void notifyInsertedRange(int from, int count);
-
-  void notifyRemovedRange(
-    int from,
-    int count,
-    AnimatedWidgetBuilder removeItemBuilder,
-  );
-
-  void notifyReplacedRange(
-    int from,
-    int removeCount,
-    int insertCount,
-    AnimatedWidgetBuilder removeItemBuilder,
-  );
-
-  void notifyMovedRange(int from, int count, int newIndex);
-
-  void batch(VoidCallback callback);
-
-  bool notifyStartReorder(BuildContext context, double dx, double dy);
-
-  void notifyUpdateReorder(double dx, double dy) {}
-
-  void notifyStopReorder(bool cancel) {}
-
-  Rect? computeItemBox(int index, bool absolute);
-
-  _PercentageSize? getItemVisibleSize(int index);
-
-  void test() {}
-}
-
-/// Use this controller to notify to the [AnimatedListView] about changes in your underlying list and more.
-class AnimatedListController {
-  _ControllerInterface? _interface;
-
-  /// Notifies the [AnimatedListView] that a range starting from [from] and [count] long
-  /// has been modified. Call this method after actually you have updated your list.
-  /// A new builder [changeItemBuilder] has to be provided in order to build the old
-  /// items when animating.
-
-  void notifyChangedRange(
-    int from,
-    int count,
-    AnimatedWidgetBuilder changeItemBuilder,
-  ) {
-    assert(_debugAssertBinded());
-    _interface!.notifyChangedRange(from, count, changeItemBuilder);
-  }
-
-  /// Notifies the [AnimatedListView] that a new range starting from [from] and [count] long
-  /// has been inserted. Call this method after actually you have updated your list.
-
-  void notifyInsertedRange(int from, int count) {
-    assert(_debugAssertBinded());
-    _interface!.notifyInsertedRange(from, count);
-  }
-
-  /// Notifies the [AnimatedListView] that a range starting from [from] and [count] long
-  /// has been removed. Call this method after actually you have updated your list.
-  /// A new builder [removeItemBuilder] has to be provided in order to build the removed
-  /// items when animating.
-  void notifyRemovedRange(
-    int from,
-    int count,
-    AnimatedWidgetBuilder removeItemBuilder,
-  ) {
-    assert(_debugAssertBinded());
-    _interface!.notifyRemovedRange(from, count, removeItemBuilder);
-  }
-
-  /// Notifies the [AnimatedListView] that a range starting from [from] and [removeCount] long
-  /// has been replaced with a new [insertCount] long range. Call this method after
-  /// you have updated your list.
-  /// A new builder [removeItemBuilder] has to be provided in order to build the replaced
-  /// items when animating.
-  void notifyReplacedRange(
-    int from,
-    int removeCount,
-    int insertCount,
-    AnimatedWidgetBuilder removeItemBuilder,
-  ) {
-    assert(_debugAssertBinded());
-    _interface!.notifyReplacedRange(
-      from,
-      removeCount,
-      insertCount,
-      removeItemBuilder,
-    );
-  }
-
-  /// Notifies the [AnimatedListView] that a range starting from [from] and [count] long
-  /// has been moved to a new location, at [newIndex] position (the new index considers the interval just removed).
-  /// Call this method after you have updated your list.
-  void notifyMovedRange(int from, int count, int newIndex) {
-    assert(_debugAssertBinded());
-    _interface!.notifyMovedRange(from, count, newIndex);
-  }
-
-  /// If more changes to the underlying list need be applied in a row, it is more efficient
-  /// to call this method and notify all the changes within the callback.
-  void batch(VoidCallback callback) {
-    assert(_debugAssertBinded());
-    _interface!.batch(callback);
-  }
-
-  /// Notifies the [AnimatedListView] that a new reoder has begun.
-  /// The [context] has to be provided to help [AnimatedListView] to locate the item
-  /// to be picked up for reordering.
-  /// The attributs [dx] and [dy] are the coordinates relative to the position of the item.
-  ///
-  /// Use this method only if you have decided not to use the
-  /// [AnimatedSliverChildBuilderDelegate.addLongPressReorderable] attribute or the
-  /// [LongPressReorderable] widget (for example if you want to reorder using your
-  /// custom drag handles).
-  ///
-  /// This method could return `false` indicating that the reordering cannot be started.
-  bool notifyStartReorder(BuildContext context, double dx, double dy) {
-    assert(_debugAssertBinded());
-    return _interface!.notifyStartReorder(context, dx, dy);
-  }
-
-  /// Notifies the [AnimatedListView] that the dragged item has moved.
-  /// The attributs [dx] and [dy] are the coordinates relative to the original position
-  /// of the item.
-  ///
-  /// Use this method only if you have decided not to use the
-  /// [AnimatedSliverChildBuilderDelegate.addLongPressReorderable] attribute or the
-  /// [LongPressReorderable] widget (for example if you want to reorder using your
-  /// custom drag handles).
-  void notifyUpdateReorder(double dx, double dy) {
-    assert(_debugAssertBinded());
-    _interface!.notifyUpdateReorder(dx, dy);
-  }
-
-  /// Notifies the [AnimatedListView] that the reorder has finished or cancelled
-  /// ([cancel] set to `true`).
-  ///
-  /// Use this method only if you have decided not to use the
-  /// [AnimatedSliverChildBuilderDelegate.addLongPressReorderable] attribute or the
-  /// [LongPressReorderable] widget (for example if you want to reorder using your
-  /// custom drag handles).
-  void notifyStopReorder(bool cancel) {
-    assert(_debugAssertBinded());
-    _interface!.notifyStopReorder(cancel);
-  }
-
-  /// Calculates the box (in pixels) of the item indicated by the [index] provided.
-  ///
-  /// The index of the item refers to the index of the underlying list.
-  ///
-  /// If [absolute] is `false` the offset is relative to the upper edge of the sliver,
-  /// otherwise the offset is relative to the upper edge of the topmost sliver.
-  ///
-  /// For one, you might pass the result to the [ScrollController.jumpTo] or [ScrollController.animateTo] methods
-  /// of a [ScrollController] to scroll to the desired item.
-  ///
-  /// The method returns `null` if the box cannot be calculated. This happens when the item isn't yet diplayed
-  /// (because animations are still in progress) or when the state of the list view has been changed via notifications
-  /// but these changes are not yet taken into account.
-  ///
-  /// Be careful! This method calculates the item box starting from items currently built in the viewport, therefore,
-  /// if the desired item is very far from them, the method could take a long time to return the result
-  /// since it must measure all the intermediate items that are among those of the viewport and the desired one.
-  Rect? computeItemBox(int index, [bool absolute = false]) {
-    assert(_debugAssertBinded());
-    return _interface!.computeItemBox(index, absolute);
-  }
-
-  /// Returns the size of the visible part (in pixels) of a certain item in the list view.
-  ///
-  /// The index of the item refers to the index of the underlying list.
-  ///
-  /// The method returns `null` if the box of the item cannot be calculated. This happens when the item
-  /// isn't yet diplayed or when the state of the list view has been changed via notifications
-  /// but these changes are not yet taken into account.
-  _PercentageSize? getItemVisibleSize(int index) {
-    assert(_debugAssertBinded());
-    return _interface!.getItemVisibleSize(index);
-  }
-
-  void _setInterface(_ControllerInterface interface) {
-    if (_interface != null) {
-      throw FlutterError(
-        'You are trying to bind this controller to multiple animated list views.\n'
-        'A $runtimeType can only be binded to one list view at a time.',
-      );
-    }
-    _interface = interface;
-  }
-
-  void _unsetInterface(_ControllerInterface interface) {
-    if (_interface == interface) _interface = null;
-  }
-
-  BuildContext get context => _interface! as BuildContext;
-
-  bool _debugAssertBinded() {
-    assert(() {
-      if (_interface == null) {
-        throw FlutterError(
-          'This controller was used before it was connected to an animated list view.\n'
-          'Make sure you passed this instance to the listController attribute of an AutomaticAnimatedListView, AnimatedListView, AnimatedSliverList or AnimatedSliverFixedExtentList.',
-        );
-      }
-      return true;
-    }());
-    return true;
-  }
-
-  /// Legacy diagnostic hook that toggles movement coordination.
-  void test() {
-    _interface?.test();
-  }
 }

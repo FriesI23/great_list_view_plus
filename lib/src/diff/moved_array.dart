@@ -1,16 +1,11 @@
-part of 'dispatcher.dart';
+import 'dart:collection';
+import 'dart:math' as math;
 
-class _MovedReplace {
+class MovedReplace {
   final int from, length, count, startOffset;
   final bool? left;
 
-  _MovedReplace(
-    this.from,
-    this.length,
-    this.count,
-    this.startOffset,
-    this.left,
-  );
+  MovedReplace(this.from, this.length, this.count, this.startOffset, this.left);
 
   @override
   String toString() {
@@ -18,12 +13,12 @@ class _MovedReplace {
   }
 }
 
-class _MovedRange {
+class MovedRange {
   int _from, _length;
 
-  _MovedRange(this._from, this._length) : assert(_from >= 0 && _length >= 0);
+  MovedRange(this._from, this._length) : assert(_from >= 0 && _length >= 0);
 
-  // _MovedRange.from(_MovedRange m)
+  // MovedRange.from(MovedRange m)
   //     : _from = m._from,
   //       _length = m._length;
 
@@ -37,15 +32,13 @@ class _MovedRange {
   }
 }
 
-class _MovedArray {
-  final List<_MovedRange> data;
+class MovedArray {
+  final List<MovedRange> data;
 
-  _MovedArray(int length)
-    : assert(length >= 0),
-      data = [_MovedRange(0, length)];
+  MovedArray(int length) : assert(length >= 0), data = [MovedRange(0, length)];
 
-  // _MovedArray.from(_MovedArray m)
-  //     : data = [for (var i in m.data) _MovedRange.from(i)];
+  // MovedArray.from(MovedArray m)
+  //     : data = [for (var i in m.data) MovedRange.from(i)];
 
   int get length => data.fold<int>(0, (pv, n) => pv + n._length);
 
@@ -65,7 +58,7 @@ class _MovedArray {
   void dataMove(int from, int len, int to) {
     if (from == to) return;
 
-    late _MovedRange n;
+    late MovedRange n;
     int j;
     for (j = 0; j < data.length; j++) {
       n = data[j];
@@ -88,18 +81,18 @@ class _MovedArray {
 
     void r(int from, int to, int len, bool swap) {
       var changed = false;
-      var subList = <_MovedRange>[];
+      var subList = <MovedRange>[];
 
       void build(int from, int len) {
         if (len <= 0) return;
         if (subList.isNotEmpty && subList.last.to == from) {
           subList.last._length += len;
         } else {
-          subList.add(_MovedRange(from, len));
+          subList.add(MovedRange(from, len));
         }
       }
 
-      _MovedRange? o;
+      MovedRange? o;
       var lz = swap ? len : 0;
       for (var j = data.length - 1; j >= 0; j--) {
         var n = data[j];
@@ -157,12 +150,12 @@ class _MovedArray {
     }
   }
 
-  List<_MovedReplace> dataReplaceOrChange(int from, int length, int count) {
+  List<MovedReplace> dataReplaceOrChange(int from, int length, int count) {
     assert(length >= 0 && count >= 0);
-    var list = SplayTreeMap<int, _MovedReplace>();
+    var list = SplayTreeMap<int, MovedReplace>();
     var o = 0;
     final to = from + length;
-    _MovedRange? pn;
+    MovedRange? pn;
     for (var j = 0; j < data.length; j++) {
       var n = data[j];
       final leftLength = math.max(0, math.min(length, n.from - from));
@@ -192,8 +185,7 @@ class _MovedArray {
           }
           list.putIfAbsent(
             n.from,
-            () =>
-                _MovedReplace(o + f, innerLength, innerCount, leftCount, left),
+            () => MovedReplace(o + f, innerLength, innerCount, leftCount, left),
           );
         }
       }
@@ -208,7 +200,7 @@ class _MovedArray {
         pn = n;
       }
     }
-    if (data.isEmpty) data.add(_MovedRange(0, 0));
+    if (data.isEmpty) data.add(MovedRange(0, 0));
     return list.values.toList();
   }
 
@@ -239,9 +231,9 @@ class _MovedArray {
       void insertAndOptimize(int index, int from, int len) {
         if (len == 0) return;
 
-        late _MovedRange b;
+        late MovedRange b;
         if (index == data.length) {
-          b = _MovedRange(from, len);
+          b = MovedRange(from, len);
           data.add(b);
         } else {
           b = data[index];
@@ -249,7 +241,7 @@ class _MovedArray {
             b._from = from;
             b._length += len;
           } else {
-            b = _MovedRange(from, len);
+            b = MovedRange(from, len);
             data.insert(index, b);
           }
         }
@@ -279,7 +271,7 @@ class _MovedArray {
           }
           newFrom = d.from + nl;
           if (nl > 0) {
-            data.insert(i++, _MovedRange(d.from, nl));
+            data.insert(i++, MovedRange(d.from, nl));
           }
           shrinkAndOptimize(i, nl + len);
           break;
@@ -287,11 +279,11 @@ class _MovedArray {
         o += dl;
       }
 
-      void f(int j, _MovedRange m, int i) {
+      void f(int j, MovedRange m, int i) {
         if (j > 0) {
           i++;
           if (m.length >= j) {
-            data.insert(i - 1, _MovedRange(m.from, j));
+            data.insert(i - 1, MovedRange(m.from, j));
             m._from += j;
             m._length -= j;
             if (m.length == 0) {

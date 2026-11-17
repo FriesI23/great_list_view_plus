@@ -1,7 +1,7 @@
 library;
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 
 /// A ticker provider that can be used without necessarily having a [StatefulWidget].
 mixin TickerProviderMixin implements TickerProvider {

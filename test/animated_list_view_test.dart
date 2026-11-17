@@ -3,6 +3,75 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 void main() {
+  testWidgets(
+    'replacing sliver types and reparenting safely rebinds a controller',
+    (tester) async {
+      final controller = AnimatedListController();
+      final key = GlobalKey();
+      Widget list({required bool fixed}) => AnimatedListView(
+        key: key,
+        listController: controller,
+        initialItemCount: 3,
+        itemExtent: fixed ? 40 : null,
+        itemBuilder: (context, index, data) =>
+            SizedBox(height: 40, child: Text('Row $index')),
+      );
+      for (final fixed in [false, true, false]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: fixed
+                ? Align(child: list(fixed: fixed))
+                : Center(child: list(fixed: fixed)),
+          ),
+        );
+        await _settle(tester);
+        expect(find.text('Row 0'), findsOneWidget);
+        expect(controller.computeItemBox(1), isNotNull);
+        expect(
+          controller.getItemVisibleSize(1),
+          isA<AnimatedListItemVisibility>(),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets('delegate changes rebuild cached rows and wrappers', (
+    tester,
+  ) async {
+    final controller = AnimatedListController();
+    final config = ValueNotifier<bool>(false);
+    addTearDown(config.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: config,
+          builder: (context, changed, _) => AnimatedListView(
+            listController: controller,
+            initialItemCount: 3,
+            itemExtent: 40,
+            morphComparator: changed ? (a, b) => a == b : null,
+            itemBuilder: (context, index, data) => SizedBox(
+              height: 40,
+              child: Text('${changed ? 'new' : 'old'} $index'),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('old 0'), findsOneWidget);
+    expect(find.byType(MorphTransition), findsNothing);
+    config.value = true;
+    await _settle(tester);
+    expect(find.text('new 0'), findsOneWidget);
+    expect(find.text('old 0'), findsNothing);
+    expect(find.byType(MorphTransition), findsWidgets);
+    config.value = false;
+    await _settle(tester);
+    expect(find.byType(MorphTransition), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final fixedExtent in [false, true]) {
     group(fixedExtent ? 'fixed extent' : 'variable extent', () {
       testWidgets('manual insert, change, remove, replace, and move', (

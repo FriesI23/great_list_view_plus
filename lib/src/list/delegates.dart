@@ -1,36 +1,21 @@
-part of 'core.dart';
+/// List construction: layout callbacks, child delegates and the sliver widget contract.
+library;
 
-/// Default duration of a dismiss or incoming animation.
-const Duration kDismissOrIncomingAnimationDuration = Duration(
-  milliseconds: 500,
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart' show SliverConstraints;
+import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Material;
+
+import '../core.dart';
+import '../transitions/morph_transition.dart';
+import 'animation.dart';
+import 'diagnostics.dart';
+import 'reorder.dart';
+
+/// Chooses the initial scroll offset after the list receives sliver constraints.
+typedef InitialScrollOffsetCallback = double? Function(
+  SliverConstraints constraints,
 );
-
-/// Default duration of a resizing animation.
-const Duration kResizeAnimationDuration = Duration(milliseconds: 500);
-
-/// Default duration of a reordering animation.
-const Duration kReorderAnimationDuration = Duration(milliseconds: 250);
-
-/// Default duration of a moving animation.
-const Duration kMovingAnimationDuration = Duration(milliseconds: 500);
-
-/// Default curve of a dismiss or incoming animation.
-const Curve kDismissOrIncomingAnimationCurve = Curves.ease;
-
-/// Default curve of a resizing animation.
-const Curve kResizeAnimationCurve = Curves.easeInOut;
-
-/// Default curve of a reordering animation.
-const Curve kReorderAnimationCurve = Curves.linear;
-
-/// Default curve of a moving animation.
-const Curve kMovingAnimationCurve = Curves.easeInOut;
-
-/// Default value of the [Material.elevation].
-const double kDefaultAnimatedElevation = 10.0;
-
-/// Default duration of the [MorphTransition] effect.
-const Duration kDefaultMorphTransitionDuration = Duration(milliseconds: 500);
 
 /// A delegate that supplies children for animated slivers.
 ///
@@ -72,6 +57,20 @@ abstract class AnimatedSliverChildDelegate {
     final description = <String>[];
     return '${describeIdentity(this)}(${description.join(", ")})';
   }
+}
+
+/// A base class for animated sliver that have multiple box children, inspired by [SliverMultiBoxAdaptorWidget].
+abstract class AnimatedSliverMultiBoxAdaptorWidget
+    extends SliverWithKeepAliveWidget {
+  const AnimatedSliverMultiBoxAdaptorWidget({
+    super.key,
+    required this.listController,
+    required this.delegate,
+  });
+
+  final AnimatedListController listController;
+
+  final AnimatedSliverChildDelegate delegate;
 }
 
 /// Inspired by [SliverChildBuilderDelegate].
@@ -241,150 +240,10 @@ class AnimatedSliverChildBuilderDelegate extends AnimatedSliverChildDelegate {
     }
     child = KeyedSubtree(key: key, child: child);
     if (kDebugMode) {
-      child = _DebugWidget(child, () => originalChild.toStringShort());
+      child = ListDebugWidget(child, () => originalChild.toStringShort());
     }
     return child;
   }
-}
-
-/// This interface can be implemented to customize all animations.
-/// [DefaultAnimatedListAnimator] is the default implementation.
-abstract class AnimatedListAnimator {
-  const AnimatedListAnimator();
-
-  /// Provides info about the animation of an outgoing item.
-  AnimatedListAnimationData dismiss();
-
-  /// Provides info about the animation of an incoming item.
-  AnimatedListAnimationData incoming();
-
-  /// Provides info about the animation of an incoming item that doesn't complete and
-  /// is turning into an outgoing item.
-  /// The current [time] of the incoming animation is provided (`0` indicates that is
-  /// just started whereas `1` is pratically completed).
-  AnimatedListAnimationData dismissDuringIncoming(double time);
-
-  /// Provides info about the animation of a resizing interval (space between items)
-  /// that appear after removing/replacing old items or before inserting new ones.
-  /// The starting [fromSize] and ending [toSize] measures of the interval are also provided.
-  AnimatedListAnimationData resizing(double fromSize, double toSize);
-
-  /// Provides info about the animation of a resizing interval (space between items)
-  /// that appear only during reordering.
-  /// The starting [fromSize] and ending [toSize] sizes of the interval are also provided.
-  AnimatedListAnimationData resizingDuringReordering(
-    double fromSize,
-    double toSize,
-  );
-
-  /// Provides info about the animation of a moving item.
-  AnimatedListAnimationData moving();
-}
-
-/// Default implementation of the inteface [AnimatedListAnimator] that uses [CurveTween]s objects.
-/// Custom animation durations and curves can also be provided.
-class DefaultAnimatedListAnimator extends AnimatedListAnimator {
-  const DefaultAnimatedListAnimator({
-    this.dismissIncomingDuration = kDismissOrIncomingAnimationDuration,
-    this.resizeDuration = kResizeAnimationDuration,
-    this.reorderDuration = kReorderAnimationDuration,
-    this.movingDuration = kMovingAnimationDuration,
-    this.dismissIncomingCurve = kDismissOrIncomingAnimationCurve,
-    this.resizeCurve = kResizeAnimationCurve,
-    this.reorderCurve = kReorderAnimationCurve,
-    this.movingCurve = kMovingAnimationCurve,
-  });
-
-  final Duration dismissIncomingDuration,
-      resizeDuration,
-      reorderDuration,
-      movingDuration;
-  final Curve dismissIncomingCurve, resizeCurve, reorderCurve, movingCurve;
-
-  /// See [AnimatedListAnimator.dismissDuringIncoming].
-  @override
-  AnimatedListAnimationData dismissDuringIncoming(double dismissTime) {
-    return AnimatedListAnimationData(
-      Tween(
-        begin: 1.0,
-        end: 0.0,
-      ).chain(CurveTween(curve: dismissIncomingCurve.flipped)),
-      dismissIncomingDuration,
-      1.0 - dismissTime,
-    );
-  }
-
-  /// See [AnimatedListAnimator.dismiss].
-  @override
-  AnimatedListAnimationData dismiss() {
-    return AnimatedListAnimationData(
-      Tween(
-        begin: 1.0,
-        end: 0.0,
-      ).chain(CurveTween(curve: dismissIncomingCurve)),
-      dismissIncomingDuration,
-    );
-  }
-
-  /// See [AnimatedListAnimator.incoming].
-  @override
-  AnimatedListAnimationData incoming() {
-    return AnimatedListAnimationData(
-      CurveTween(curve: dismissIncomingCurve),
-      dismissIncomingDuration,
-    );
-  }
-
-  /// See [AnimatedListAnimator.resizing].
-  @override
-  AnimatedListAnimationData resizing(double fromSize, double toSize) {
-    return AnimatedListAnimationData(
-      CurveTween(curve: resizeCurve),
-      resizeDuration,
-    );
-  }
-
-  /// See [AnimatedListAnimator.resizingDuringReordering].
-  @override
-  AnimatedListAnimationData resizingDuringReordering(
-    double fromSize,
-    double toSize,
-  ) {
-    return AnimatedListAnimationData(
-      CurveTween(curve: reorderCurve),
-      reorderDuration,
-    );
-  }
-
-  /// See [AnimatedListAnimator.moving].
-  @override
-  AnimatedListAnimationData moving() {
-    return AnimatedListAnimationData(
-      CurveTween(curve: movingCurve),
-      movingDuration,
-    );
-  }
-}
-
-/// Holds information about an animation.
-///
-/// The [animation] attribute is used to convert the linear animation (from `0.0` to `1.0`) in a customized way,
-/// like [Tween]s.
-///
-/// The [duration] attribute indicates the duration of the entire animation.
-///
-/// The [startTime] attribute, if is greater than zero, indicates that the animation won't start from the beginning
-/// but at a specific point.
-class AnimatedListAnimationData {
-  const AnimatedListAnimationData(
-    this.animation,
-    this.duration, [
-    this.startTime = 0.0,
-  ]) : assert(startTime >= 0.0 && startTime <= 1.0);
-
-  final Animatable<double> animation;
-  final Duration duration;
-  final double startTime;
 }
 
 class _SaltedValueKey extends ValueKey<Key> {

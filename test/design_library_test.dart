@@ -1,8 +1,7 @@
 import 'package:cupertino_ui/cupertino_ui.dart' as cupertino;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
-import 'package:great_list_view_plus/other_widgets.dart';
-import 'package:great_list_view_plus/ticker_mixin.dart';
+import 'package:great_list_view_plus/src/utils/ticker_provider_mixin.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {

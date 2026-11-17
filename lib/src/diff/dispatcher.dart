@@ -1,16 +1,25 @@
 import 'dart:async';
-import 'dart:collection';
-import 'dart:math' as math;
 
 import 'package:diffutil_dart/diffutil.dart';
 import 'package:flutter/widgets.dart';
-import 'package:great_list_view_plus/great_list_view_plus.dart'
-    show AnimatedListController, AnimatedWidgetBuilderData;
 import 'package:worker_manager/worker_manager.dart';
 
-part 'package:great_list_view_plus/src/moved_array.dart';
+import '../core.dart' show AnimatedListController, AnimatedWidgetBuilderData;
+import 'moved_array.dart';
 
 const int kSpawnNewIsolateCount = 500;
+
+/// Optional startup preparation for animated list updates.
+abstract final class GreatListView {
+  /// Prepares background workers before the first large list diff.
+  ///
+  /// Call once before any background diff, typically before `runApp`, when
+  /// first-update latency matters. Without this call, workers start on demand.
+  /// By default a background diff is used when the old and new list lengths
+  /// total at least [kSpawnNewIsolateCount]. Initialization errors propagate to
+  /// the caller.
+  static Future<void> warmUp() => Executor().warmUp();
+}
 
 typedef AnimatedListDiffBuilder<T> = Widget Function(
   BuildContext context,
@@ -118,7 +127,7 @@ class AnimatedListDiffDispatcher<T> {
     final cl = _ChangeList(comparator.lengthOf(oldList));
 
     Widget callOldListBuilder(
-      List<_MovedRange> l,
+      List<MovedRange> l,
       int index,
       BuildContext context,
       AnimatedWidgetBuilderData data,
@@ -575,9 +584,9 @@ class _Range {
 
 class _ChangeList {
   final List<_Range> ranges = [];
-  final _MovedArray movedArray;
+  final MovedArray movedArray;
 
-  _ChangeList(int length) : movedArray = _MovedArray(length);
+  _ChangeList(int length) : movedArray = MovedArray(length);
 
   void move(int from, int count, int to) {
     movedArray.dataMove(from, count, to);
@@ -620,10 +629,10 @@ class _ChangeList {
     }
   }
 
-  List<_MovedRange>? apply(int from, int count) {
-    List<_MovedRange>? list;
+  List<MovedRange>? apply(int from, int count) {
+    List<MovedRange>? list;
 
-    List<_MovedRange>? fn(List<_MovedRange>? list, int from, int count) {
+    List<MovedRange>? fn(List<MovedRange>? list, int from, int count) {
       var i = 0;
       for (; i < ranges.length; i++) {
         final r = ranges[i];
@@ -643,13 +652,13 @@ class _ChangeList {
           if (r.insert > 0) return null;
           assert(r.remove > 0);
           final delta = r.from - from;
-          (list ??= <_MovedRange>[]).add(_MovedRange(from, delta));
+          (list ??= <MovedRange>[]).add(MovedRange(from, delta));
           from += delta + r.remove;
           to += r.remove;
           count -= delta;
         }
       }
-      (list ??= <_MovedRange>[]).add(_MovedRange(from, count));
+      (list ??= <MovedRange>[]).add(MovedRange(from, count));
       return list;
     }
 

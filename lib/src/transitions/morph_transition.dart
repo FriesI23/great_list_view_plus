@@ -1,15 +1,11 @@
-// These existing public render interfaces use private implementation types.
-// Keep them source compatible with great_list_view 0.2.3.
-// ignore_for_file: library_private_types_in_public_api
-
 import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 
-import '../../ticker_mixin.dart';
+import '../utils/ticker_provider_mixin.dart';
 
 typedef MorphComparator = bool Function(Widget a, Widget b);
 
@@ -45,12 +41,12 @@ class MorphTransition extends RenderObjectWidget {
   final Clip clipBehavior;
 
   @override
-  MorphRenderObjectElement createElement() => MorphRenderObjectElement(this);
+  RenderObjectElement createElement() => _MorphRenderObjectElement(this);
 
   @override
-  MorphRenderStack createRenderObject(BuildContext context) {
-    return MorphRenderStack(
-      context as MorphRenderObjectElement,
+  RenderStack createRenderObject(BuildContext context) {
+    return _MorphRenderStack(
+      context as _MorphRenderObjectElement,
       textDirection: textDirection ?? Directionality.of(context),
       clipBehavior: clipBehavior,
       resizeChildrenWhenAnimating: resizeWidgets,
@@ -58,23 +54,23 @@ class MorphTransition extends RenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, MorphRenderStack renderObject) {
-    renderObject
+  void updateRenderObject(BuildContext context, RenderStack renderObject) {
+    (renderObject as _MorphRenderStack)
       ..textDirection = textDirection ?? Directionality.of(context)
       ..clipBehavior = clipBehavior
       .._resizeChildrenWhenAnimating = resizeWidgets;
   }
 }
 
-class MorphRenderStack extends RenderStack {
-  final MorphRenderObjectElement _element;
+class _MorphRenderStack extends RenderStack {
+  final _MorphRenderObjectElement _element;
   final _animations = HashMap<RenderBox, AnimationController>();
   var _paintRenderObjects = HashMap<RenderBox?, int>();
   bool _resizeChildrenWhenAnimating;
   ClipRectLayer? _clipRectLayer;
   final _opacityLayer = <LayerHandle<OpacityLayer>>[];
 
-  MorphRenderStack(
+  _MorphRenderStack(
     this._element, {
     this._resizeChildrenWhenAnimating = false,
     super.textDirection,
@@ -362,19 +358,19 @@ class MorphRenderStack extends RenderStack {
   }
 }
 
-class MorphRenderObjectElement extends RenderObjectElement
+class _MorphRenderObjectElement extends RenderObjectElement
     with TickerProviderMixin {
   final _list = LinkedList<_Entry>();
   Element? _topElement;
   final _removeList = <_Entry>[];
 
-  MorphRenderObjectElement(MorphTransition super.widget);
+  _MorphRenderObjectElement(MorphTransition super.widget);
 
   @override
   MorphTransition get widget => super.widget as MorphTransition;
 
   @override
-  MorphRenderStack get renderObject => super.renderObject as MorphRenderStack;
+  _MorphRenderStack get renderObject => super.renderObject as _MorphRenderStack;
 
   @override
   void insertRenderObjectChild(RenderBox child, _Entry? slot) {

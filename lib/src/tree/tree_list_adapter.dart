@@ -3,15 +3,15 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
-import 'package:great_list_view_plus/great_list_view_plus.dart'
-    show AnimatedListController, AnimatedListView, AnimatedWidgetBuilderData;
+
+import '../core.dart' show AnimatedListController, AnimatedWidgetBuilderData;
 
 const int _kWindowSize = 80;
 
 bool _kEquals(dynamic a, dynamic b) => a == b;
 
 /// This special builder has to be used to allow [TreeListAdapter] to notify automatically
-/// the [AnimatedListView] connected to the [TreeListAdapter.controller].
+/// the `AnimatedListView` connected to the [TreeListAdapter.controller].
 /// The [adapter] can refer to the whole tree or only to a specific section (subtree) of it.
 /// The [index] is the list index referred to the tree o subtree.
 typedef AnimatedListTreeBuilder<T> = Widget Function(
@@ -475,8 +475,6 @@ class TreeListAdapter<T> {
 
     final oldParentNode = parentOf(myself);
 
-    final i1 = nodeToIndex(oldParentNode);
-
     var prevLevel = levelOf(prevNode);
 
     T pNode;
@@ -496,7 +494,10 @@ class TreeListAdapter<T> {
       pos = indexOfChild(pNode, prevNode) + 1;
     }
 
-    final i2 = nodeToIndex(pNode);
+    // The destination slot was computed before removing the source child.
+    if (equals(oldParentNode, pNode) && indexOfChild(pNode, myself) < pos) {
+      pos--;
+    }
 
     notifyNodeRemoving(
       myself,
@@ -513,6 +514,8 @@ class TreeListAdapter<T> {
     );
 
     if (updateParentNodes) {
+      final i1 = nodeToIndex(oldParentNode);
+      final i2 = nodeToIndex(pNode);
       controller!.batch(() {
         if (i1 != null) {
           controller!.notifyChangedRange(

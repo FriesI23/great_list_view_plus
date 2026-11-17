@@ -1,15 +1,16 @@
-// These existing public render interfaces use private implementation types.
-// Keep them source compatible with great_list_view 0.2.3.
-// ignore_for_file: library_private_types_in_public_api
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 
-part of 'core.dart';
+import '../list/interval_model.dart';
+import 'multi_container.dart';
 
 abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     with
         MultiContainerRenderObjectMixin<
           RenderBox,
           MultiSliverMultiBoxAdaptorParentData,
-          _PopUpList?
+          PopUpList?
         >,
         RenderSliverHelpers,
         RenderSliverWithKeepAliveMixin {
@@ -24,7 +25,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   // Measurement children are adopted temporarily, outside the child lists.
-  void _dropDisposableChild(RenderObject child) => dropChild(child);
+  void dropDisposableChild(RenderObject child) => dropChild(child);
 
   @override
   void setupParentData(RenderObject child) {
@@ -44,7 +45,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   final MultiRenderSliverBoxChildManager _childManager;
 
   /// The nodes being kept alive despite not being visible.
-  final _keepAliveBucket = <_PopUpList?, Map<int, RenderBox>>{};
+  final _keepAliveBucket = <PopUpList?, Map<int, RenderBox>>{};
 
   late List<RenderBox> _debugDanglingKeepAlives;
 
@@ -99,7 +100,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void insert(_PopUpList? key, RenderBox child, {RenderBox? after}) {
+  void insert(PopUpList? key, RenderBox child, {RenderBox? after}) {
     assert(!_keepAliveBucket.values.any((e) => e.containsValue(child)));
     super.insert(key, child, after: after);
     assert(listOf(key)!.firstChild != null);
@@ -107,7 +108,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void move(_PopUpList? newKey, RenderBox child, {RenderBox? after}) {
+  void move(PopUpList? newKey, RenderBox child, {RenderBox? after}) {
     // There are two scenarios:
     //
     // 1. The child is not keptAlive.
@@ -157,7 +158,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void remove(_PopUpList? key, RenderBox child) {
+  void remove(PopUpList? key, RenderBox child) {
     final childParentData =
         child.parentData! as MultiSliverMultiBoxAdaptorParentData;
     if (!childParentData._keptAlive) {
@@ -176,7 +177,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void removeAll(_PopUpList? key) {
+  void removeAll(PopUpList? key) {
     super.removeAll(key);
     final keepAliveBucket = _keepAliveBucket[key]!;
     for (var e in keepAliveBucket.values) {
@@ -187,7 +188,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   void _createOrObtainChild(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     int index, {
     required RenderBox? after,
   }) {
@@ -209,7 +210,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     });
   }
 
-  void _destroyOrCacheChild(_PopUpList? popUpList, RenderBox child) {
+  void _destroyOrCacheChild(PopUpList? popUpList, RenderBox child) {
     final childParentData =
         child.parentData! as MultiSliverMultiBoxAdaptorParentData;
     if (childParentData.keepAlive) {
@@ -279,7 +280,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// `createChild`.
   @protected
   bool addInitialChild({
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     int index = 0,
     double layoutOffset = 0.0,
   }) {
@@ -315,7 +316,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// for the one that is created and returned by `createChild`.
   @protected
   RenderBox? insertAndLayoutLeadingChild(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     BoxConstraints childConstraints, {
     bool parentUsesSize = false,
   }) {
@@ -345,7 +346,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// new child may be added.
   @protected
   RenderBox? insertAndLayoutChild(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     BoxConstraints childConstraints, {
     required RenderBox? after,
     bool parentUsesSize = false,
@@ -374,7 +375,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// [performLayout] is run, even if the arguments are both zero.
   @protected
   void collectGarbage(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     int leadingGarbage,
     int trailingGarbage,
   ) {
@@ -423,7 +424,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     return childParentData.index!;
   }
 
-  _PopUpList? popUpListOf(RenderBox child) {
+  PopUpList? popUpListOf(RenderBox child) {
     final childParentData =
         child.parentData! as MultiSliverMultiBoxAdaptorParentData;
     assert(childParentData.index != null);
@@ -517,7 +518,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     }
   }
 
-  void _paint(_PopUpList? popUpList, PaintingContext context, Offset offset) {
+  void _paint(PopUpList? popUpList, PaintingContext context, Offset offset) {
     final list = listOf(popUpList);
     if (list?.firstChild == null) {
       return;
@@ -600,7 +601,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// sequence of indices.
   ///
   /// Always returns true.
-  bool debugAssertChildListIsNonEmptyAndContiguous(_PopUpList? popUpList) {
+  bool debugAssertChildListIsNonEmptyAndContiguous(PopUpList? popUpList) {
     assert(() {
       final list = listOf(popUpList)!;
       assert(list.firstChild != null);
@@ -662,7 +663,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
 
 class MultiSliverMultiBoxAdaptorParentData extends SliverLogicalParentData
     with
-        MultiContainerParentDataMixin<RenderBox, _PopUpList>,
+        MultiContainerParentDataMixin<RenderBox, PopUpList>,
         KeepAliveParentDataMixin {
   /// The index of this child according to the [RenderSliverBoxChildManager].
   int? index;
@@ -678,11 +679,11 @@ class MultiSliverMultiBoxAdaptorParentData extends SliverLogicalParentData
 
 abstract class MultiRenderSliverBoxChildManager {
   void createChild(
-    _PopUpList? popUpList,
+    PopUpList? popUpList,
     int index, {
     required RenderBox? after,
   });
-  void removeChild(_PopUpList? popUpList, RenderBox child);
+  void removeChild(PopUpList? popUpList, RenderBox child);
   double estimateMaxScrollOffset(
     SliverConstraints constraints, {
     int? firstIndex,
@@ -693,8 +694,8 @@ abstract class MultiRenderSliverBoxChildManager {
   int get childCount;
   void didAdoptChild(RenderBox child);
   void setDidUnderflow(bool value);
-  void didStartLayout(_PopUpList? popUpList);
-  void didFinishLayout(_PopUpList? popUpList);
+  void didStartLayout(PopUpList? popUpList);
+  void didFinishLayout(PopUpList? popUpList);
   bool debugAssertChildListLocked() => true;
-  List<_PopUpList> get listOfPopUps;
+  List<PopUpList> get listOfPopUps;
 }

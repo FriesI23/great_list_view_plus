@@ -1,8 +1,18 @@
-part of 'core.dart';
+/// Interval collection updates, followed by their intrusive linked-list storage.
+library;
 
-typedef _DistributeNotificationCallback = void Function(
-  _Interval interval,
-  _IntervalList list,
+import 'dart:math' as math;
+
+import 'package:collection/collection.dart';
+import 'package:flutter/widgets.dart';
+
+import '../core.dart';
+import 'interval_model.dart';
+import 'intervals.dart';
+
+typedef DistributeNotificationCallback = void Function(
+  ListInterval interval,
+  IntervalList list,
   int removeCount,
   int insertCount,
   int leading,
@@ -16,25 +26,25 @@ typedef _DistributeNotificationCallback = void Function(
 /// list of contigous intervals, each with its own meaning.
 ///
 /// This class is a linked list and all the intervals are its nodes.
-class _IntervalList extends _LinkedList<_Interval>
-    implements Iterable<_Interval> {
+class IntervalList extends NodeLinkedList<ListInterval>
+    implements Iterable<ListInterval> {
   bool _disposed = false;
 
   bool changed = false;
 
-  final _IntervalManager manager;
+  final IntervalCoordinator manager;
 
-  _PopUpList? popUpList;
+  PopUpList? popUpList;
 
-  _SubListHolderInterval? holder;
+  SubListHolderInterval? holder;
 
-  _Interval? _leftMostDirtyInterval;
+  ListInterval? _leftMostDirtyInterval;
 
   //
 
-  _IntervalList(this.manager);
+  IntervalList(this.manager);
 
-  _IntervalList.normal(this.manager, int initialCount) {
+  IntervalList.normal(this.manager, int initialCount) {
     if (initialCount > 0) {
       newContent(initialCount, true);
     }
@@ -52,13 +62,44 @@ class _IntervalList extends _LinkedList<_Interval>
   /// SUm of the average count of all intervals.
   double get averageCount => fold<double>(0.0, (pv, e) => pv + e.averageCount);
 
+  /// Owns invalidation of offsets across the linked interval collection.
+  void invalidateFrom(ListInterval first) {
+    if (first.isDirty) return;
+    _leftMostDirtyInterval = first;
+    ListInterval? interval = first;
+    do {
+      interval!.invalidateOffsets();
+      interval = interval.next;
+    } while (interval != null && !interval.isDirty);
+  }
+
+  /// Validates offsets in order, so nodes never write collection bookkeeping.
+  void validateThrough(ListInterval target) {
+    if (!target.isDirty) return;
+    assert(_leftMostDirtyInterval != null);
+    var interval = _leftMostDirtyInterval;
+    final previous = interval!.previous;
+    var buildOffset = previous == null ? 0 : previous.nextBuildOffset;
+    var itemOffset = previous == null ? 0 : previous.nextItemOffset;
+    do {
+      final next = interval!.next;
+      interval.cacheOffsets(buildOffset, itemOffset);
+      _leftMostDirtyInterval = next;
+      if (interval == target) break;
+      buildOffset += interval.buildCount;
+      itemOffset += interval.itemCount;
+      interval = next;
+    } while (interval != null);
+    assert(!target.isDirty);
+  }
+
   //
   // List manipulation
   //
 
   void remove(
-    Iterable<_Interval> intervals, {
-    _UpdateCallback? updateCallback,
+    Iterable<ListInterval> intervals, {
+    IntervalUpdateCallback? updateCallback,
     bool dispose = true,
   }) {
     assert(_debugAssertNotDisposed());
@@ -76,7 +117,7 @@ class _IntervalList extends _LinkedList<_Interval>
     }
 
     for (var i in intervals) {
-      i._remove();
+      i.unlink();
       if (dispose) i.dispose();
     }
 
@@ -95,10 +136,10 @@ class _IntervalList extends _LinkedList<_Interval>
   }
 
   void replace(
-    Iterable<_Interval> oldIntervals,
-    Iterable<_Interval> newIntervals, {
-    _UpdateCallback? updateCallback,
-    _IntervalList? outSubList,
+    Iterable<ListInterval> oldIntervals,
+    Iterable<ListInterval> newIntervals, {
+    IntervalUpdateCallback? updateCallback,
+    IntervalList? outSubList,
     VoidCallback? intermediateCallback,
   }) {
     assert(_debugAssertNotDisposed());
@@ -118,14 +159,14 @@ class _IntervalList extends _LinkedList<_Interval>
     final firstNewInterval = newIntervals.first;
     final secondNewInterval = newIntervals.skip(1).firstOrNull;
 
-    if (newIntervals is _IntervalList) {
+    if (newIntervals is IntervalList) {
       newIntervals = newIntervals.toList();
     }
 
     for (var i in newIntervals) {
       assert(!oldIntervals.contains(i));
       i.list?.remove(i.iterable(), dispose: false);
-      i._invalidate();
+      i.invalidateOffsets();
     }
 
     final next = oldIntervals.last.next;
@@ -136,7 +177,7 @@ class _IntervalList extends _LinkedList<_Interval>
         _leftMostDirtyInterval = firstNewInterval;
       }
     } else {
-      firstNewInterval._validate(0, 0);
+      firstNewInterval.cacheOffsets(0, 0);
       next?.invalidate();
       if (newIntervals.singleOrNull != null) {
         _leftMostDirtyInterval = next;
@@ -146,16 +187,16 @@ class _IntervalList extends _LinkedList<_Interval>
     }
 
     for (final i in newIntervals) {
-      oldIntervals.first._insertBefore(i);
+      oldIntervals.first.insertBefore(i);
     }
     for (var i in oldIntervals) {
-      i._remove();
-      outSubList == null ? i.dispose() : outSubList._add(i);
+      i.unlink();
+      outSubList == null ? i.dispose() : outSubList.appendNode(i);
     }
 
     if (outSubList != null) {
       assert(outSubList.isNotEmpty);
-      outSubList._invalidate();
+      outSubList._invalidateAllOffsets();
     }
 
     holder?.onChanged();
@@ -173,12 +214,12 @@ class _IntervalList extends _LinkedList<_Interval>
   }
 
   void insertAfter(
-    _Interval interval,
-    Iterable<_Interval> newIntervals, {
-    _UpdateCallback? updateCallback,
+    ListInterval interval,
+    Iterable<ListInterval> newIntervals, {
+    IntervalUpdateCallback? updateCallback,
   }) {
     assert(_debugAssertNotDisposed());
-    assert(interval._list == this);
+    assert(interval.list == this);
 
     if (newIntervals.isEmpty) return;
 
@@ -193,8 +234,8 @@ class _IntervalList extends _LinkedList<_Interval>
     var next = interval;
     for (final i in newIntervals) {
       i.list?.remove(i.iterable(), dispose: false);
-      i._invalidate();
-      next._insertAfter(i);
+      i.invalidateOffsets();
+      next.insertAfter(i);
       next = i;
     }
 
@@ -213,12 +254,12 @@ class _IntervalList extends _LinkedList<_Interval>
   }
 
   void insertBefore(
-    _Interval interval,
-    Iterable<_Interval> newIntervals, {
-    _UpdateCallback? updateCallback,
+    ListInterval interval,
+    Iterable<ListInterval> newIntervals, {
+    IntervalUpdateCallback? updateCallback,
   }) {
     assert(_debugAssertNotDisposed());
-    assert(interval._list == this);
+    assert(interval.list == this);
 
     if (newIntervals.isEmpty) return;
 
@@ -228,7 +269,7 @@ class _IntervalList extends _LinkedList<_Interval>
 
     for (final i in newIntervals) {
       i.list?.remove(i.iterable(), dispose: false);
-      i._invalidate();
+      i.invalidateOffsets();
     }
 
     interval.invalidate();
@@ -237,7 +278,7 @@ class _IntervalList extends _LinkedList<_Interval>
     }
 
     for (final i in newIntervals) {
-      interval._insertBefore(i);
+      interval.insertBefore(i);
     }
 
     holder?.onChanged();
@@ -257,9 +298,9 @@ class _IntervalList extends _LinkedList<_Interval>
   void split(
     int leading,
     int trailing,
-    _IntervalList? leftSubList,
-    _IntervalList? middleSubList,
-    _IntervalList? rightSubList,
+    IntervalList? leftSubList,
+    IntervalList? middleSubList,
+    IntervalList? rightSubList,
   ) {
     assert(_debugAssertNotDisposed());
     final middleItemCount = itemCount - leading - trailing;
@@ -274,30 +315,30 @@ class _IntervalList extends _LinkedList<_Interval>
       _,
       _,
     ) {
-      assert(interval is! _SubListInterval);
+      assert(interval is! SubListInterval);
       final result = interval.split(leading, trailing);
       manager.performSplit(interval, result);
     });
 
     final middle = leading + middleItemCount;
     var ic = 0;
-    _Interval? i = first;
+    ListInterval? i = first;
     while (i != null) {
       var next = i.next;
-      i._remove();
+      i.unlink();
       if (ic < leading) {
-        leftSubList!._add(i);
+        leftSubList!.appendNode(i);
       } else if (ic < middle) {
-        middleSubList!._add(i);
+        middleSubList!.appendNode(i);
       } else {
-        rightSubList!._add(i);
+        rightSubList!.appendNode(i);
       }
       ic += i.itemCount;
       i = next;
     }
 
-    middleSubList?._invalidate();
-    rightSubList?._invalidate();
+    middleSubList?._invalidateAllOffsets();
+    rightSubList?._invalidateAllOffsets();
 
     assert(isEmpty);
 
@@ -308,10 +349,10 @@ class _IntervalList extends _LinkedList<_Interval>
     assert(_debugAssertNotDisposed());
     assert(isEmpty && count > 0);
     final interval = spawned
-        ? _NormalInterval.completed(count)
-        : _ReadyToResizingSpawnedInterval(count);
-    interval._validate(0, 0);
-    _add(interval);
+        ? NormalInterval.completed(count)
+        : ReadyToResizingSpawnedInterval(count);
+    interval.cacheOffsets(0, 0);
+    appendNode(interval);
   }
 
   //
@@ -322,12 +363,12 @@ class _IntervalList extends _LinkedList<_Interval>
     int insertCount,
     AnimatedWidgetBuilder? offListItemBuilder,
     int offListBuilderOffset,
-    _DistributeNotificationCallback callback, {
+    DistributeNotificationCallback callback, {
     Object? params,
   }) {
     assert(_debugAssertNotDisposed());
-    _Interval? interval = first;
-    _Interval? nextInterval;
+    ListInterval? interval = first;
+    ListInterval? nextInterval;
     var ifrom = 0, ito = 0, mapperDelta = 0;
 
     final checkBorder = removeCount == 0;
@@ -385,10 +426,10 @@ class _IntervalList extends _LinkedList<_Interval>
     throw Exception('this point should never have been reached');
   }
 
-  _Interval intervalAtBuildIndex(int buildIndex) {
+  ListInterval intervalAtBuildIndex(int buildIndex) {
     assert(_debugAssertNotDisposed());
     var buildOffset = 0;
-    _Interval? interval, nextInterval;
+    ListInterval? interval, nextInterval;
     for (interval = first; interval != null; interval = nextInterval) {
       nextInterval = interval.next;
       if (buildIndex < interval.buildCount + buildOffset) {
@@ -399,10 +440,10 @@ class _IntervalList extends _LinkedList<_Interval>
     throw Exception('this point should never have been reached');
   }
 
-  _Interval intervalAtItemIndex(int listIndex) {
+  ListInterval intervalAtItemIndex(int listIndex) {
     assert(_debugAssertNotDisposed());
     var itemOffset = 0;
-    _Interval? interval, nextInterval;
+    ListInterval? interval, nextInterval;
     for (interval = first; interval != null; interval = nextInterval) {
       nextInterval = interval.next;
       if (listIndex < interval.itemCount + itemOffset) {
@@ -431,8 +472,8 @@ class _IntervalList extends _LinkedList<_Interval>
     _leftMostDirtyInterval?.validate();
   }
 
-  void _invalidate() {
-    forEach((i) => i._invalidate());
+  void _invalidateAllOffsets() {
+    forEach((i) => i.invalidateOffsets());
     _leftMostDirtyInterval = firstOrNull;
   }
 
@@ -442,7 +483,7 @@ class _IntervalList extends _LinkedList<_Interval>
     final l = toList();
     for (var i in l) {
       i
-        .._remove()
+        ..unlink()
         ..dispose();
     }
     popUpList = null;
@@ -471,12 +512,12 @@ class _IntervalList extends _LinkedList<_Interval>
     return true;
   }
 
-  bool debugAssertIntervalsConsistency(Iterable<_Interval> intervals) {
+  bool debugAssertIntervalsConsistency(Iterable<ListInterval> intervals) {
     assert(() {
       if (intervals.isEmpty) return false;
-      _Interval? prev;
+      ListInterval? prev;
       for (final i in intervals) {
-        if (!i._debugAssertAttachedToList()) return false;
+        if (!i.debugAssertAttachedToList()) return false;
         if (i.list != this) return false;
         if (prev != null) {
           if (i.previous != prev) return false;
@@ -492,7 +533,7 @@ class _IntervalList extends _LinkedList<_Interval>
     assert(() {
       var buildOffset = 0;
       var itemOffset = 0;
-      _Interval? interval;
+      ListInterval? interval;
       for (
         interval = firstOrNull;
         interval != null && interval != _leftMostDirtyInterval;
@@ -522,7 +563,7 @@ class _IntervalList extends _LinkedList<_Interval>
     int index,
     int oldBuildCount,
     int newBuildCount, {
-    _UpdateFlags flags = const _UpdateFlags(),
+    IntervalUpdateFlags flags = const IntervalUpdateFlags(),
   }) {
     manager.addUpdate(
       index,
@@ -534,16 +575,117 @@ class _IntervalList extends _LinkedList<_Interval>
   }
 }
 
-extension _InterableIntervalExtension on Iterable<_Interval> {
+extension IterableIntervalCounts on Iterable<ListInterval> {
   int get buildCount => fold<int>(0, (pv, i) => pv + i.buildCount);
 
-  Iterable<_Interval> get expandedIntervals sync* {
+  Iterable<ListInterval> get expandedIntervals sync* {
     for (final i in this) {
-      if (i is _ReadyToMoveInterval) {
+      if (i is ReadyToMoveInterval) {
         yield* i.subList.expandedIntervals;
       } else {
         yield i;
       }
     }
   }
+}
+
+class LinkedNode<T extends LinkedNode<T>> with _NodePointers<T> {
+  NodeLinkedList<T>? _list;
+
+  NodeLinkedList<T>? get list => _list;
+
+  T? get next => (_list == null || _next!._next == null) ? null : (_next! as T);
+
+  T? get previous =>
+      (_list == null || _prev!._prev == null) ? null : (_prev! as T);
+
+  void unlink() {
+    assert(_list != null);
+    _prev!._next = _next;
+    _next!._prev = _prev;
+    _next = null;
+    _prev = null;
+    _list = null;
+  }
+
+  void insertAfter(LinkedNode<T> newNode) {
+    assert(newNode._list == null);
+    final n = _next!;
+    newNode._next = n;
+    newNode._prev = this;
+    _next = newNode;
+    n._prev = newNode;
+    newNode._list = _list;
+  }
+
+  void insertBefore(LinkedNode<T> newNode) {
+    assert(newNode._list == null);
+    final p = _prev!;
+    newNode._next = this;
+    newNode._prev = p;
+    _prev = newNode;
+    p._next = newNode;
+    newNode._list = _list;
+  }
+}
+
+class NodeLinkedList<T extends LinkedNode<T>> extends Iterable<T> {
+  final _Head<T> _head = _Head<T>();
+  final _Tail<T> _tail = _Tail<T>();
+
+  NodeLinkedList() {
+    _head._next = _tail;
+    _tail._prev = _head;
+  }
+
+  @override
+  String toString() {
+    return "(${join(", ")})";
+  }
+
+  void appendNode(LinkedNode<T> newNode) {
+    assert(newNode._list == null);
+    final p = _tail._prev;
+    p!._next = newNode;
+    newNode._next = _tail;
+    newNode._prev = p;
+    _tail._prev = newNode;
+    newNode._list = this;
+  }
+
+  @override
+  Iterator<T> get iterator => _LinkedListIterator<T>(this);
+}
+
+class _LinkedListIterator<T extends LinkedNode<T>> implements Iterator<T> {
+  T? _current;
+  _NodePointers<T>? _next;
+
+  _LinkedListIterator(NodeLinkedList<T> list) : _next = list._head._next;
+
+  @override
+  T get current => _current as T;
+
+  @override
+  bool moveNext() {
+    if (_next!._next == null) return false;
+    final nn = _next!._next;
+    _current = _next as T;
+    _next = nn;
+    return true;
+  }
+}
+
+mixin class _NodePointers<T> {
+  _NodePointers<T>? _next, _prev;
+}
+
+class _Head<T> extends _NodePointers<T> {
+  @override
+  String toString() => 'HEAD';
+}
+
+class _Tail<T> extends _NodePointers<T> {
+  @override
+  String toString() => 'TAIL';
 }

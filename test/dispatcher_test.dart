@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:worker_manager/worker_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 bool _sameItem(int a, int b) => a == b;
 
 void main() {
-  test('large list diff completes through the exported worker API', () async {
+  test('large list diff uses internal workers', () async {
     final controller = _RecordingController();
     final initial = List.generate(300, (index) => index);
     final next = List.of(initial)
@@ -20,7 +21,7 @@ void main() {
         sameContent: _sameItem,
       ),
     );
-    await Executor().warmUp(isolatesCount: 2);
+    await GreatListView.warmUp();
     try {
       final result = dispatcher.dispatchNewList(next);
       expect(dispatcher.hasPendingTask, isTrue);
@@ -34,6 +35,31 @@ void main() {
         controller.notifications,
         containsAll(['remove:299:1', 'insert:2:1']),
       );
+    } finally {
+      await Executor().dispose();
+    }
+  });
+
+  test('large list diff starts workers without explicit warm-up', () async {
+    final controller = _RecordingController();
+    final initial = List.generate(250, (index) => index);
+    final next = [...initial, 999];
+    final dispatcher = AnimatedListDiffListDispatcher<int>(
+      controller: controller,
+      itemBuilder: (context, value, data) => Text('Item $value'),
+      currentList: initial,
+      comparator: const AnimatedListDiffListComparator<int>(
+        sameItem: _sameItem,
+        sameContent: _sameItem,
+      ),
+    );
+    try {
+      await dispatcher
+          .dispatchNewList(next)
+          .timeout(const Duration(seconds: 15));
+      expect(dispatcher.hasPendingTask, isFalse);
+      expect(dispatcher.currentList, orderedEquals(next));
+      expect(controller.notifications, ['insert:250:1']);
     } finally {
       await Executor().dispose();
     }

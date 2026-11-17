@@ -1,28 +1,41 @@
-part of 'core.dart';
+import 'dart:async';
+import 'dart:math' as math;
 
-class _IntervalManager with TickerProviderMixin {
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import '../core.dart';
+import '../utils/ticker_provider_mixin.dart';
+import 'animation.dart';
+import 'diagnostics.dart';
+import 'interval_list.dart';
+import 'interval_model.dart';
+import 'intervals.dart';
+
+class IntervalManager with TickerProviderMixin implements IntervalCoordinator {
   var _disposed = false;
 
   // This allows to communicate with the child manager.
-  final _ListIntervalInterface interface;
+  @override
+  final ListIntervalHost interface;
 
   /// Any updates that the child manager has to take into account in the next rebuild
   /// via the [AnimatedSliverMultiBoxAdaptorElement.performRebuild] method.
-  final updates = List<_Update>.empty(growable: true);
+  final updates = List<IntervalUpdate>.empty(growable: true);
 
   /// All animations attached to its intervals.
-  final animations = <_ControlledAnimation>{};
+  final animations = <ControlledAnimation<AnimatedIntervalMixin>>{};
 
-  final List<_PopUpList> _listOfPopUps = [];
-  List<_PopUpList> get listOfPopUps => List.unmodifiable(_listOfPopUps);
+  final List<PopUpList> _listOfPopUps = [];
+  List<PopUpList> get listOfPopUps => List.unmodifiable(_listOfPopUps);
 
-  late _IntervalList list;
+  late IntervalList list;
 
   late int _lastBuildCount;
 
-  _IntervalManager(this.interface) {
+  IntervalManager(this.interface) {
     final initialCount = _lastBuildCount = interface.delegate.initialChildCount;
-    list = _IntervalList.normal(this, initialCount);
+    list = IntervalList.normal(this, initialCount);
   }
 
   /// The [AnimatedListAnimator] instance taken from the [AnimatedSliverChildDelegate].
@@ -33,9 +46,9 @@ class _IntervalManager with TickerProviderMixin {
 
   //
 
-  _MovingPopUpList _addMovingPopUpList([_MovingPopUpList? prevPopUpList]) {
+  MovingPopUpList _addMovingPopUpList([MovingPopUpList? prevPopUpList]) {
     assert(debugAssertNotDisposed());
-    final popUpList = _MovingPopUpList();
+    final popUpList = MovingPopUpList();
     if (prevPopUpList == null) {
       _listOfPopUps.add(popUpList);
     } else {
@@ -44,18 +57,20 @@ class _IntervalManager with TickerProviderMixin {
     return popUpList;
   }
 
-  _ReorderPopUpList _addReorderPopUpList(_IntervalList list) {
+  ReorderPopUpList _addReorderPopUpList(IntervalList list) {
     assert(debugAssertNotDisposed());
-    final popUpList = _ReorderPopUpList(list);
-    assert(listOfPopUps.isEmpty || listOfPopUps.first is! _ReorderPopUpList);
+    final popUpList = ReorderPopUpList(list);
+    assert(listOfPopUps.isEmpty || listOfPopUps.first is! ReorderPopUpList);
     _listOfPopUps.insert(0, popUpList);
     return popUpList;
   }
 
-  void onResizeTick(_AnimatedSpaceInterval interval, double delta) {
+  @override
+  void onResizeTick(AnimatedSpaceInterval interval, double delta) {
     interface.resizingIntervalUpdated(interval, delta);
   }
 
+  @override
   void onMovingTick() {
     interface.markNeedsLayout();
   }
@@ -78,10 +93,10 @@ class _IntervalManager with TickerProviderMixin {
 
     if (removeCount == 0 && insertCount == 0) return;
 
-    _dbgBegin(
+    listLogBegin(
       'notifyReplacedRange( from=$from, rem=$removeCount, ins=$insertCount )',
     );
-    _dbgPrint('$this');
+    listLogPrint('$this');
 
     if (list.isEmpty) {
       list.newContent(insertCount);
@@ -99,9 +114,9 @@ class _IntervalManager with TickerProviderMixin {
 
     checkMainListChanged();
 
-    _dbgPrint('$this');
-    _dbgPrint('$updates');
-    _dbgEnd();
+    listLogPrint('$this');
+    listLogPrint('$updates');
+    listLogEnd();
   }
 
   // This interval list has notified that a range of the underlying list has been changed.
@@ -115,8 +130,8 @@ class _IntervalManager with TickerProviderMixin {
       throw Exception('Out of range');
     }
 
-    _dbgBegin('notifyChangedRange( from=$from, count=$count )');
-    _dbgPrint('$this');
+    listLogBegin('notifyChangedRange( from=$from, count=$count )');
+    listLogPrint('$this');
 
     list.distributeNotification(
       from,
@@ -129,9 +144,9 @@ class _IntervalManager with TickerProviderMixin {
 
     checkMainListChanged();
 
-    _dbgPrint('$this');
-    _dbgPrint('$updates');
-    _dbgEnd();
+    listLogPrint('$this');
+    listLogPrint('$updates');
+    listLogEnd();
   }
 
   // This interval list has notified that a range of the underlying list has been moved.
@@ -146,8 +161,8 @@ class _IntervalManager with TickerProviderMixin {
 
     if (count == 0 || from == to) return;
 
-    _dbgBegin('notifyMovedRange( from=$from, count=$count, newIndex=$to )');
-    _dbgPrint('$this');
+    listLogBegin('notifyMovedRange( from=$from, count=$count, newIndex=$to )');
+    listLogPrint('$this');
 
     final bundle = _MoveBundle(list);
     list.distributeNotification(
@@ -171,15 +186,15 @@ class _IntervalManager with TickerProviderMixin {
 
     checkMainListChanged();
 
-    _dbgPrint('$this');
-    _dbgPrint('$updates');
-    _dbgEnd();
+    listLogPrint('$this');
+    listLogPrint('$updates');
+    listLogEnd();
   }
 
   /// It transforms the interval affected by a replacement notification.
   void onReplaceNotification(
-    _Interval interval,
-    _IntervalList list,
+    ListInterval interval,
+    IntervalList list,
     int removeCount,
     int insertCount,
     int leading,
@@ -190,7 +205,7 @@ class _IntervalManager with TickerProviderMixin {
   ) {
     if (removeCount == 0 && insertCount == 0) return;
 
-    if (interval is _AdjustableInterval) {
+    if (interval is AdjustableInterval) {
       final newItemCount = interval.itemCount - removeCount + insertCount;
       if (newItemCount == 0 && interval.buildCount == 0) {
         list.remove(interval.iterable());
@@ -198,10 +213,10 @@ class _IntervalManager with TickerProviderMixin {
         final newInterval = interval.clone(newItemCount);
         list.replace(interval.iterable(), newInterval.iterable());
       }
-    } else if (interval is _ResizableInterval) {
+    } else if (interval is ResizableInterval) {
       list.replace(
         interval.iterable(),
-        _ReadyToNewResizingInterval(
+        ReadyToNewResizingInterval(
           interval.itemCount - removeCount + insertCount,
           interval.currentSize.toExactMeasure(),
           interval.averageCount,
@@ -212,15 +227,15 @@ class _IntervalManager with TickerProviderMixin {
         assert(removeCount == 0 && insertCount > 0);
         list.insertBefore(
           interval,
-          _ReadyToResizingSpawnedInterval(insertCount).iterable(),
+          ReadyToResizingSpawnedInterval(insertCount).iterable(),
         );
       } else if (trailing == 0 && leading == interval.itemCount) {
         assert(removeCount == 0 && insertCount > 0);
         list.insertAfter(
           interval,
-          _ReadyToResizingSpawnedInterval(insertCount).iterable(),
+          ReadyToResizingSpawnedInterval(insertCount).iterable(),
         );
-      } else if (interval is _SubListInterval) {
+      } else if (interval is SubListInterval) {
         interval.subList.distributeNotification(
           leading,
           removeCount,
@@ -229,21 +244,21 @@ class _IntervalManager with TickerProviderMixin {
           offListItemBuilderOffset,
           onReplaceNotification,
         );
-        if (interval is _ReorderHolderInterval) {
+        if (interval is ReorderHolderInterval) {
           assert(removeCount == 1);
           interface.reorderCancel();
         }
-      } else if (interval is _NormalInterval) {
-        late _Interval middle;
+      } else if (interval is NormalInterval) {
+        late ListInterval middle;
         if (removeCount > 0) {
-          middle = _ReadyToRemovalInterval(
+          middle = ReadyToRemovalInterval(
             interval.animation,
             _offListBuilder(offListItemBuilder, offListItemBuilderOffset)!,
             removeCount,
             insertCount,
           );
         } else {
-          middle = _ReadyToResizingSpawnedInterval(insertCount);
+          middle = ReadyToResizingSpawnedInterval(insertCount);
         }
         final result = interval.splitWith(
           leading,
@@ -252,17 +267,17 @@ class _IntervalManager with TickerProviderMixin {
           _alwaysUpdateCallback,
         );
         performSplit(interval, result);
-      } else if (interval is _ReadyToChangingInterval) {
-        _Interval middle;
+      } else if (interval is ReadyToChangingInterval) {
+        ListInterval middle;
         if (removeCount > 0) {
-          middle = _ReadyToRemovalInterval(
+          middle = ReadyToRemovalInterval(
             interval.animation,
             offsetIntervalBuilder(interval.builder, leading)!,
             removeCount,
             insertCount,
           );
         } else {
-          middle = _ReadyToResizingSpawnedInterval(insertCount);
+          middle = ReadyToResizingSpawnedInterval(insertCount);
         }
         final result = interval.splitWith(
           leading,
@@ -281,8 +296,8 @@ class _IntervalManager with TickerProviderMixin {
 
   /// It transforms the interval affected by a change notification.
   void onChangeNotification(
-    _Interval interval,
-    _IntervalList list,
+    ListInterval interval,
+    IntervalList list,
     int changeCount,
     int _,
     int leading,
@@ -295,9 +310,9 @@ class _IntervalManager with TickerProviderMixin {
 
     assert(interval.itemCount > 0);
 
-    if (interval is _NormalInterval) {
-      late _Interval middle;
-      middle = _ReadyToChangingInterval(
+    if (interval is NormalInterval) {
+      late ListInterval middle;
+      middle = ReadyToChangingInterval(
         interval.animation,
         _offListBuilder(offListItemBuilder, offListItemBuilderOffset)!,
         changeCount,
@@ -309,24 +324,24 @@ class _IntervalManager with TickerProviderMixin {
         _alwaysUpdateCallback,
       );
       performSplit(interval, result);
-    } else if (interval is _ReadyToChangingInterval) {
+    } else if (interval is ReadyToChangingInterval) {
       // already marked to be changed
-    } else if (interval is _AdjustableInterval) {
+    } else if (interval is AdjustableInterval) {
       list.replace(
         interval.iterable(),
         interval.clone(interval.itemCount).iterable(),
       );
-    } else if (interval is _ResizableInterval) {
+    } else if (interval is ResizableInterval) {
       list.replace(
         interval.iterable(),
-        _ReadyToNewResizingInterval(
+        ReadyToNewResizingInterval(
           interval.itemCount,
           interval.currentSize.toExactMeasure(),
           interval.averageCount,
         ).iterable(),
       );
-    } else if (interval is _SubListInterval) {
-      assert(interval is! _WithDropInterval);
+    } else if (interval is SubListInterval) {
+      assert(interval is! WithDropInterval);
       interval.subList.distributeNotification(
         leading,
         changeCount,
@@ -335,7 +350,7 @@ class _IntervalManager with TickerProviderMixin {
         offListItemBuilderOffset,
         onChangeNotification,
       );
-    } else if (interval is _ReorderHolderInterval) {
+    } else if (interval is ReorderHolderInterval) {
       var subList = reorderLayoutData!.openingInterval.subList;
       subList.distributeNotification(
         leading,
@@ -353,8 +368,8 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void onMoveNotificationPick(
-    _Interval interval,
-    _IntervalList list,
+    ListInterval interval,
+    IntervalList list,
     int count,
     int moveCount,
     int leading,
@@ -371,11 +386,11 @@ class _IntervalManager with TickerProviderMixin {
       return;
     }
 
-    if (interval is _DropInterval) {
+    if (interval is DropInterval) {
       moveBundle.addDropInterval(interval, leading, trailing);
-    } else if (interval is _MovingInterval) {
+    } else if (interval is MovingInterval) {
       moveBundle.addMovingInterval(interval, leading, trailing);
-    } else if (interval is _ReorderHolderInterval) {
+    } else if (interval is ReorderHolderInterval) {
       moveBundle.addReoderHolderInterval(interval);
     } else {
       final result = interval.split(leading, trailing);
@@ -385,8 +400,8 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _onMoveNotificationDrop(
-    _Interval interval,
-    _IntervalList list,
+    ListInterval interval,
+    IntervalList list,
     int removeCount,
     int insertCount,
     int leading,
@@ -397,7 +412,7 @@ class _IntervalManager with TickerProviderMixin {
   ) {
     assert(removeCount == 0 && insertCount == 1);
 
-    var dropIntervals = bundle as List<_Interval>;
+    var dropIntervals = bundle as List<ListInterval>;
 
     assert(dropIntervals.buildCount == 0);
 
@@ -413,19 +428,19 @@ class _IntervalManager with TickerProviderMixin {
         dropIntervals,
         updateCallback: _alwaysUpdateCallback,
       );
-    } else if (interval is _DropInterval) {
+    } else if (interval is DropInterval) {
       final result = interval.withDropInterval.dropSplit(leading, trailing);
       performSplit(interval.withDropInterval, result);
       list.replace(interval.iterable(), (
-        _SplitResult? r,
-        Iterable<_Interval> d,
+        SplitResult? r,
+        Iterable<ListInterval> d,
       ) sync* {
         if (r?.left != null) {
-          yield (result.left!.first as _WithDropInterval).dropInterval;
+          yield (result.left!.first as WithDropInterval).dropInterval;
         }
         yield* d;
         if (r?.right != null) {
-          yield (result.right!.first as _WithDropInterval).dropInterval;
+          yield (result.right!.first as WithDropInterval).dropInterval;
         }
       }(result, dropIntervals));
     } else {
@@ -443,7 +458,7 @@ class _IntervalManager with TickerProviderMixin {
 
   /// It converts the builder passed in [notifyReplacedRange] or [notifyChangedRange] in an
   /// interval builder with the specified [offset].
-  _IntervalBuilder? _offListBuilder(
+  IntervalBuilder? _offListBuilder(
     AnimatedWidgetBuilder? builder, [
     int offset = 0,
   ]) {
@@ -454,7 +469,7 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _alwaysUpdateCallback(
-    _IntervalList list,
+    IntervalList list,
     int index,
     int oldBuildCount,
     int newBuildCount,
@@ -462,10 +477,11 @@ class _IntervalManager with TickerProviderMixin {
     list.addUpdate(index, oldBuildCount, newBuildCount);
   }
 
-  void performSplit(_Interval i, _SplitResult r) {
+  @override
+  void performSplit(ListInterval i, SplitResult r) {
     i.list!.replace(
       i.iterable(),
-      (_SplitResult r) sync* {
+      (SplitResult r) sync* {
         if (r.left != null) yield* r.left!;
         if (r.middle != null) yield* r.middle!;
         if (r.right != null) yield* r.right!;
@@ -477,13 +493,13 @@ class _IntervalManager with TickerProviderMixin {
     );
   }
 
-  Iterable<_Interval> get allIntervals =>
+  Iterable<ListInterval> get allIntervals =>
       list.followedBy(subIntervalLists.expand((e) => e));
 
   bool _postponed = false;
 
-  Iterable<_IntervalList> get subIntervalLists =>
-      list.whereType<_SubListHolderInterval>().map((e) => e.subList);
+  Iterable<IntervalList> get subIntervalLists =>
+      list.whereType<SubListHolderInterval>().map((e) => e.subList);
 
   void checkMainListChanged() {
     subIntervalLists.where((l) => l.changed).forEach((l) => onListChanged(l));
@@ -491,22 +507,22 @@ class _IntervalManager with TickerProviderMixin {
     assert(debugConsistency());
   }
 
-  void onListChanged(_IntervalList list) {
+  void onListChanged(IntervalList list) {
     optimize(list);
 
     if (list.holder != null) {
       if (list.isEmpty) {
         final holder = list.holder!;
         final holderList = holder.list!;
-        if (holder is _ReadyToMoveInterval) {
+        if (holder is ReadyToMoveInterval) {
           assert(holder.itemCount == 0 && holder.buildCount == 0);
           holderList.changed = true;
-          holder.dropInterval._remove();
+          holder.dropInterval.unlink();
           holderList.remove(
             holder.iterable(),
             updateCallback: _alwaysUpdateCallback,
           );
-        } else if (holder is _MovingInterval) {
+        } else if (holder is MovingInterval) {
           assert(holder.itemCount == 0);
           holderList.changed = true;
           _listOfPopUps.remove(holder.popUpList);
@@ -523,20 +539,20 @@ class _IntervalManager with TickerProviderMixin {
 
   /// It transforms some or all ready-to intervals into a new type of intervals.
   void coordinate() {
-    _dbgBegin('coordinate()');
-    _dbgPrint('$this');
+    listLogBegin('coordinate()');
+    listLogPrint('$this');
 
     _coordinate();
 
     checkMainListChanged();
 
-    _dbgPrint('$this');
-    _dbgEnd();
+    listLogPrint('$this');
+    listLogEnd();
   }
 
   void _coordinate() {
     allIntervals
-        .whereType<_ReadyToResizing>()
+        .whereType<ReadyToResizing>()
         .where((e) => !e.isMeasured && !e.isMeasuring) // && e.isReadyToMeasure)
         .forEach((interval) {
           final f = interval.startMeasuring(interface);
@@ -547,7 +563,7 @@ class _IntervalManager with TickerProviderMixin {
           }
         });
 
-    if (!list.whereType<_MovingInterval>().any(
+    if (!list.whereType<MovingInterval>().any(
       (i) => !i.areAnimationsCompleted,
     )) {
       _unpackCompletedDrop();
@@ -555,13 +571,13 @@ class _IntervalManager with TickerProviderMixin {
 
     _readyToRemoveToRemoval();
 
-    if (list.whereType<_RemovalInterval>().any(
+    if (list.whereType<RemovalInterval>().any(
       (i) => !i.areAnimationsCompleted,
     )) {
       return;
     }
 
-    if (list.whereType<_ReadyToResizing>().any((i) => i.isMeasuring)) {
+    if (list.whereType<ReadyToResizing>().any((i) => i.isMeasuring)) {
       return;
     }
 
@@ -569,12 +585,12 @@ class _IntervalManager with TickerProviderMixin {
 
     _readyToResizeToResizing();
 
-    if (_moveit) _readyToMoveToMove();
+    _readyToMoveToMove();
 
-    if (list.whereType<_ResizingInterval>().any(
+    if (list.whereType<ResizingInterval>().any(
           (i) => !i.areAnimationsCompleted,
         ) ||
-        list.whereType<_MovingInterval>().any(
+        list.whereType<MovingInterval>().any(
           (i) => !i.areAnimationsCompleted,
         )) {
       return;
@@ -584,7 +600,7 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _readyToRemoveToRemoval() {
-    var rem = allIntervals.whereType<_ReadyToRemovalInterval>();
+    var rem = allIntervals.whereType<ReadyToRemovalInterval>();
     if (rem.isNotEmpty) {
       rem.toList().forEach((interval) {
         final animation = interval.isWaitingAtEnd
@@ -592,13 +608,13 @@ class _IntervalManager with TickerProviderMixin {
             : _createAnimation(
                 animator.dismissDuringIncoming(interval.animation.time),
               );
-        final newInterval = _RemovalInterval(
+        final newInterval = RemovalInterval(
           animation,
           interval.builder,
           interval.buildCount,
           interval.itemCount,
         );
-        _dbgPrint('->Rm => Rm {$interval}, {$newInterval}');
+        listLogPrint('->Rm => Rm {$interval}, {$newInterval}');
         interval.list!.replace(
           interval.iterable(),
           newInterval.iterable(),
@@ -610,17 +626,17 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _readyToChangeToNormal() {
-    var chg = allIntervals.whereType<_ReadyToChangingInterval>().where(
+    var chg = allIntervals.whereType<ReadyToChangingInterval>().where(
       (e) => e.list!.popUpList == null,
     );
     if (chg.isNotEmpty) {
       chg.toList().forEach((interval) {
         _freezeDropPopUp(interval);
-        final newInterval = _NormalInterval(
+        final newInterval = NormalInterval(
           interval.animation,
           interval.itemCount,
         );
-        _dbgPrint('->Ch => Nm {$interval}, {$newInterval}');
+        listLogPrint('->Ch => Nm {$interval}, {$newInterval}');
         interval.list!.replace(
           interval.iterable(),
           newInterval.iterable(),
@@ -631,12 +647,12 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   // TODO: Revisit popup resizing and final animated item sizes.
-  void _freezeDropPopUp(_Interval interval) {
+  void _freezeDropPopUp(ListInterval interval) {
     // Freeze a moving popup while its contents change size, then recalculate
     // its dimensions and destination before resuming the move.
-    if (interval.list?.holder is _MovingInterval) {
-      final di = interval.list?.holder as _MovingInterval;
-      final i = _ReadyToPopupMoveInterval(
+    if (interval.list?.holder is MovingInterval) {
+      final di = interval.list?.holder as MovingInterval;
+      final i = ReadyToPopupMoveInterval(
         di.popUpList.subLists.single,
         di.popUpList,
         di.averageCount,
@@ -650,13 +666,13 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _readyToResizeToResizing() {
-    var res = allIntervals.whereType<_ReadyToResizing>();
+    var res = allIntervals.whereType<ReadyToResizing>();
     if (res.isNotEmpty) {
       res.where((e) => e.isMeasured).toList().forEach((interval) {
         // TODO: does not work, because it does not take into condideration the final height of the item changed for
         // because of the animation that deals with the changing
         _freezeDropPopUp(interval);
-        final newInterval = _ResizingInterval(
+        final newInterval = ResizingInterval(
           _createAnimation(
             animator.resizing(interval.fromSize!.value, interval.toSize!.value),
           ),
@@ -665,13 +681,13 @@ class _IntervalManager with TickerProviderMixin {
           interval.fromLength,
           interval.itemCount,
         );
-        _dbgPrint('->Rz => Rz {$interval}, {$newInterval}');
+        listLogPrint('->Rz => Rz {$interval}, {$newInterval}');
         interval.list!.replace(
           interval.iterable(),
           newInterval.iterable(),
           updateCallback:
               (
-                _IntervalList list,
+                IntervalList list,
                 int index,
                 int oldBuildCount,
                 int newBuildCount,
@@ -681,14 +697,14 @@ class _IntervalManager with TickerProviderMixin {
                   oldBuildCount,
                   newBuildCount,
                   flags: interval.fromSize!.estimated
-                      ? const _UpdateFlags(
-                          _UpdateFlags.discardElement |
-                              _UpdateFlags.clearLayoutOffset,
+                      ? const IntervalUpdateFlags(
+                          IntervalUpdateFlags.discardElement |
+                              IntervalUpdateFlags.clearLayoutOffset,
                         )
-                      : const _UpdateFlags(
-                          _UpdateFlags.discardElement |
-                              _UpdateFlags.clearLayoutOffset |
-                              _UpdateFlags.keepFirstLayoutOffset,
+                      : const IntervalUpdateFlags(
+                          IntervalUpdateFlags.discardElement |
+                              IntervalUpdateFlags.clearLayoutOffset |
+                              IntervalUpdateFlags.keepFirstLayoutOffset,
                         ),
                 );
               },
@@ -699,20 +715,20 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _readyToInsertToInsert() {
-    var ins = allIntervals.whereType<_ReadyToInsertionInterval>();
+    var ins = allIntervals.whereType<ReadyToInsertionInterval>();
     if (ins.isNotEmpty) {
       ins.toList().forEach((interval) {
-        final newInterval = _NormalInterval(
+        final newInterval = NormalInterval(
           _createAnimation(animator.incoming()),
           interval.itemCount,
         );
-        _dbgPrint('->In => Nm {$interval}, {$newInterval}');
+        listLogPrint('->In => Nm {$interval}, {$newInterval}');
         interval.list!.replace(
           interval.iterable(),
           newInterval.iterable(),
           updateCallback:
               (
-                _IntervalList list,
+                IntervalList list,
                 int index,
                 int oldBuildCount,
                 int newBuildCount,
@@ -722,14 +738,14 @@ class _IntervalManager with TickerProviderMixin {
                   oldBuildCount,
                   newBuildCount,
                   flags: interval.size.estimated
-                      ? const _UpdateFlags(
-                          _UpdateFlags.discardElement |
-                              _UpdateFlags.clearLayoutOffset,
+                      ? const IntervalUpdateFlags(
+                          IntervalUpdateFlags.discardElement |
+                              IntervalUpdateFlags.clearLayoutOffset,
                         )
-                      : const _UpdateFlags(
-                          _UpdateFlags.discardElement |
-                              _UpdateFlags.clearLayoutOffset |
-                              _UpdateFlags.keepFirstLayoutOffset,
+                      : const IntervalUpdateFlags(
+                          IntervalUpdateFlags.discardElement |
+                              IntervalUpdateFlags.clearLayoutOffset |
+                              IntervalUpdateFlags.keepFirstLayoutOffset,
                         ),
                 );
               },
@@ -740,28 +756,28 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _readyToMoveToMove() {
-    final toMoveIntervals = allIntervals.whereType<_WithDropInterval>();
+    final toMoveIntervals = allIntervals.whereType<WithDropInterval>();
     if (toMoveIntervals.isNotEmpty) {
       void fn() {
-        var popUpListToRemove = <_PopUpList>{};
+        var popUpListToRemove = <PopUpList>{};
 
         void transformIntervals(
-          _WithDropInterval r2mi,
-          _Measure fromStart,
-          _Measure fromSize,
-          _Measure fromBoxSize,
-          _ControlledAnimation resizeAnim,
-          _ControlledAnimation moveAnim,
-          _Measure toSize,
-          _Measure toOffset,
-          _MovingPopUpList? oldPopUp,
+          WithDropInterval r2mi,
+          ItemMeasure fromStart,
+          ItemMeasure fromSize,
+          ItemMeasure fromBoxSize,
+          ControlledAnimation<AnimatedIntervalMixin> resizeAnim,
+          ControlledAnimation<AnimatedIntervalMixin> moveAnim,
+          ItemMeasure toSize,
+          ItemMeasure toOffset,
+          MovingPopUpList? oldPopUp,
         ) {
           var toIndex = r2mi.dropInterval.itemOffset;
           if (r2mi.itemOffset < toIndex) {
             toIndex -= r2mi.itemCount;
           }
 
-          final movingInterval = _MovingInterval(
+          final movingInterval = MovingInterval(
             resizeAnim,
             moveAnim,
             r2mi.subList,
@@ -770,15 +786,15 @@ class _IntervalManager with TickerProviderMixin {
             fromStart.value,
           );
 
-          final resizeInterval = _ResizingInterval(
+          final resizeInterval = ResizingInterval(
             _createAnimation(animator.resizing(fromSize.value, 0.0)),
             fromBoxSize,
-            _Measure.zero,
+            ItemMeasure.zero,
             r2mi.averageCount,
             0,
           );
           final list = r2mi.list!;
-          _dbgPrint('->Mv => Mv {${r2mi.dropInterval}}, {$movingInterval}');
+          listLogPrint('->Mv => Mv {${r2mi.dropInterval}}, {$movingInterval}');
           list.replace(
             r2mi.dropInterval.iterable(),
             movingInterval.iterable(),
@@ -789,12 +805,12 @@ class _IntervalManager with TickerProviderMixin {
             resizeInterval.iterable(),
             updateCallback:
                 (
-                  _IntervalList list,
+                  IntervalList list,
                   int index,
                   int oldBuildCount,
                   int newBuildCount,
                 ) {
-                  if (r2mi is _ReadyToPopupMoveInterval) {
+                  if (r2mi is ReadyToPopupMoveInterval) {
                     addUpdate(
                       index,
                       oldBuildCount,
@@ -807,7 +823,9 @@ class _IntervalManager with TickerProviderMixin {
                       count,
                       popUpList: r2mi.popUpList,
                       toPopUpList: movingInterval.popUpList,
-                      flags: const _UpdateFlags(_UpdateFlags.popupPick),
+                      flags: const IntervalUpdateFlags(
+                        IntervalUpdateFlags.popupPick,
+                      ),
                     );
                   } else {
                     addUpdate(
@@ -815,7 +833,9 @@ class _IntervalManager with TickerProviderMixin {
                       oldBuildCount,
                       newBuildCount,
                       toPopUpList: movingInterval.popUpList,
-                      flags: const _UpdateFlags(_UpdateFlags.popupPick),
+                      flags: const IntervalUpdateFlags(
+                        IntervalUpdateFlags.popupPick,
+                      ),
                     );
                   }
                 },
@@ -829,9 +849,9 @@ class _IntervalManager with TickerProviderMixin {
         } // fn()
 
         final callbacks = toMoveIntervals.toList().map<void Function()>((r2mi) {
-          _MovingPopUpList? oldPopUp;
-          _Measure fromStart, fromEnd, fromSize, fromBoxSize;
-          if (r2mi is _ReadyToPopupMoveInterval) {
+          MovingPopUpList? oldPopUp;
+          ItemMeasure fromStart, fromEnd, fromSize, fromBoxSize;
+          if (r2mi is ReadyToPopupMoveInterval) {
             oldPopUp = r2mi.popUpList;
             final i = r2mi.popUpList.buildIndexOf(r2mi.subList);
             fromStart = interface.estimateLayoutOffset(
@@ -860,7 +880,7 @@ class _IntervalManager with TickerProviderMixin {
               );
             }
 
-            fromBoxSize = _Measure(r2mi.currentSize);
+            fromBoxSize = ItemMeasure(r2mi.currentSize);
           } else {
             fromStart = interface.estimateLayoutOffset(
               r2mi.buildOffset,
@@ -876,7 +896,7 @@ class _IntervalManager with TickerProviderMixin {
 
           // ottimizzazione: se sono tutti ReadyToResizingSpawnedInterval, è inuile creare la popup
           // con soli box ridimenzionabili invisibili, tanto vale metterli direttamente a destinazione
-          if (!r2mi.subList.any((e) => e is! _ReadyToResizingSpawnedInterval)) {
+          if (!r2mi.subList.any((e) => e is! ReadyToResizingSpawnedInterval)) {
             return () {
               final list = r2mi.list!;
               var toIndex = r2mi.dropInterval.itemOffset;
@@ -884,13 +904,13 @@ class _IntervalManager with TickerProviderMixin {
                 toIndex -= r2mi.itemCount;
               }
 
-              Iterable<_Interval> newList;
-              _ResizingInterval? resizeInterval;
-              if (r2mi is _ReadyToPopupMoveInterval) {
-                resizeInterval = _ResizingInterval(
+              Iterable<ListInterval> newList;
+              ResizingInterval? resizeInterval;
+              if (r2mi is ReadyToPopupMoveInterval) {
+                resizeInterval = ResizingInterval(
                   _createAnimation(animator.resizing(r2mi.currentSize, 0.0)),
                   r2mi.currentSize.toExactMeasure(),
-                  _Measure.zero,
+                  ItemMeasure.zero,
                   r2mi.averageCount,
                   0,
                 );
@@ -959,21 +979,21 @@ class _IntervalManager with TickerProviderMixin {
         if (!_postponed) {
           _postponed = true;
 
-          _dbgPrint('scheduling _readyToMoveToDrop at next frame');
+          listLogPrint('scheduling _readyToMoveToDrop at next frame');
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _postponed = false;
 
-            _dbgBegin('_readyToMoveToDrop postponed');
+            listLogBegin('_readyToMoveToDrop postponed');
 
-            _dbgPrint('$this');
+            listLogPrint('$this');
 
             assert(updates.isEmpty);
 
             fn();
 
-            _dbgPrint('$this');
-            _dbgEnd();
+            listLogPrint('$this');
+            listLogEnd();
           });
         }
       } else {
@@ -984,17 +1004,17 @@ class _IntervalManager with TickerProviderMixin {
 
   void _unpackCompletedDrop() {
     list
-        .whereType<_MovingInterval>()
+        .whereType<MovingInterval>()
         .where((i) => i.areAnimationsCompleted)
         .toList()
         .forEach((i) {
-          _dbgPrint('Mv finished {$i}');
+          listLogPrint('Mv finished {$i}');
           list.replace(
             i.iterable(),
             i.subList,
             updateCallback:
                 (
-                  _IntervalList list,
+                  IntervalList list,
                   int index,
                   int oldBuildCount,
                   int newBuildCount,
@@ -1004,7 +1024,9 @@ class _IntervalManager with TickerProviderMixin {
                     oldBuildCount,
                     newBuildCount,
                     popUpList: i.popUpList,
-                    flags: const _UpdateFlags(_UpdateFlags.popupDrop),
+                    flags: const IntervalUpdateFlags(
+                      IntervalUpdateFlags.popupDrop,
+                    ),
                   );
                 },
           );
@@ -1014,28 +1036,28 @@ class _IntervalManager with TickerProviderMixin {
 
   /// This is Called when an [interval] has completed its animation.
   /// It could transform that interval into a new type of interval.
-  void onIntervalCompleted(_AnimatedIntervalMixin interval) {
-    _dbgBegin('_onIntervalCompleted( $interval )');
-    _dbgPrint('$this');
+  void onIntervalCompleted(AnimatedIntervalMixin interval) {
+    listLogBegin('_onIntervalCompleted( $interval )');
+    listLogPrint('$this');
 
     final list = interval.list!;
 
-    if (interval is _RemovalInterval) {
+    if (interval is RemovalInterval) {
       list.replace(
         interval.iterable(),
-        _ReadyToResizingFromRemovalInterval(
+        ReadyToResizingFromRemovalInterval(
           interval.builder,
           interval.buildCount,
           interval.itemCount,
         ).iterable(),
       );
-    } else if (interval is _ReorderClosingInterval) {
+    } else if (interval is ReorderClosingInterval) {
       list.remove(interval.iterable(), updateCallback: _alwaysUpdateCallback);
-    } else if (interval is _ResizingInterval) {
+    } else if (interval is ResizingInterval) {
       if (interval.toLength > 0) {
         list.replace(
           interval.iterable(),
-          _ReadyToInsertionInterval(
+          ReadyToInsertionInterval(
             interval.toSize,
             interval.itemCount,
           ).iterable(),
@@ -1049,16 +1071,16 @@ class _IntervalManager with TickerProviderMixin {
 
     checkMainListChanged();
 
-    _dbgPrint('$this');
-    _dbgEnd();
+    listLogPrint('$this');
+    listLogEnd();
   }
 
   /// It analyzes if there are intervals that can be merged together in order to optimize this list.
-  void optimize(_IntervalList list) {
+  void optimize(IntervalList list) {
     if (list.isEmpty) return;
 
-    _Interval? interval = list.first;
-    _Interval? oldLeftInterval, leftInterval, nextInterval = interval.next;
+    ListInterval? interval = list.first;
+    ListInterval? oldLeftInterval, leftInterval, nextInterval = interval.next;
     while (interval != null) {
       var mergeResult = leftInterval != null
           ? interval.mergeWith(leftInterval)
@@ -1085,19 +1107,20 @@ class _IntervalManager with TickerProviderMixin {
     }
   }
 
-  /// Adds a new [_Update] element in the update list of this list interval or pop-up list.
+  /// Adds a new [IntervalUpdate] element in the update list of this list interval or pop-up list.
   /// This methods also instructs the child manager to be rebuilt.
+  @override
   void addUpdate(
     int index,
     int oldBuildCount,
     int newBuildCount, {
-    _UpdateFlags flags = const _UpdateFlags(),
-    _PopUpList? popUpList,
-    _PopUpList? toPopUpList,
+    IntervalUpdateFlags flags = const IntervalUpdateFlags(),
+    PopUpList? popUpList,
+    PopUpList? toPopUpList,
   }) {
     assert(debugAssertNotDisposed());
     if (oldBuildCount == 0 && newBuildCount == 0) return;
-    final update = _Update(
+    final update = IntervalUpdate(
       index,
       oldBuildCount,
       newBuildCount,
@@ -1117,9 +1140,11 @@ class _IntervalManager with TickerProviderMixin {
     }
   }
 
-  _ControlledAnimation _createAnimation(AnimatedListAnimationData data) {
+  ControlledAnimation<AnimatedIntervalMixin> _createAnimation(
+    AnimatedListAnimationData data,
+  ) {
     assert(debugAssertNotDisposed());
-    final animation = _ControlledAnimation(
+    final animation = ControlledAnimation<AnimatedIntervalMixin>(
       this,
       data.animation,
       data.duration,
@@ -1145,7 +1170,7 @@ class _IntervalManager with TickerProviderMixin {
   @mustCallSuper
   void dispose() {
     assert(debugAssertNotDisposed());
-    list.whereType<_SubListInterval>().forEach((i) => i.subList.dispose());
+    list.whereType<SubListInterval>().forEach((i) => i.subList.dispose());
     _listOfPopUps.clear();
     animations.clear();
     updates.clear();
@@ -1156,19 +1181,19 @@ class _IntervalManager with TickerProviderMixin {
 
   bool debugConsistency() {
     assert(() {
-      if (list.whereType<_SubListInterval>().any(
-        (e) => e.subList.whereType<_SubListInterval>().isNotEmpty,
+      if (list.whereType<SubListInterval>().any(
+        (e) => e.subList.whereType<SubListInterval>().isNotEmpty,
       )) {
         return false;
       }
 
       final popUpLists = list
-          .whereType<_PopUpInterval>()
-          .map<_PopUpList>((e) => e.popUpList)
+          .whereType<PopUpInterval>()
+          .map<PopUpList>((e) => e.popUpList)
           .toSet();
 
       return setEquals(popUpLists, listOfPopUps.toSet()) &&
-          list.whereType<_WithDropInterval>().every(
+          list.whereType<WithDropInterval>().every(
             (e) => e.list == e.dropInterval.list,
           ) &&
           debugUpdateConsistency();
@@ -1207,11 +1232,12 @@ class _IntervalManager with TickerProviderMixin {
   // Reordering
   //
 
-  _ReorderLayoutData? reorderLayoutData;
+  @override
+  ReorderLayoutData? reorderLayoutData;
 
   void reorderStart(
-    _ReorderLayoutData rld,
-    _NormalInterval interval,
+    ReorderLayoutData rld,
+    NormalInterval interval,
     int indexOffset,
     int itemIndex,
   ) {
@@ -1219,14 +1245,14 @@ class _IntervalManager with TickerProviderMixin {
     assert(reorderLayoutData == null);
     reorderLayoutData = rld;
 
-    final popUpList = _addReorderPopUpList(_IntervalList.normal(this, 1));
+    final popUpList = _addReorderPopUpList(IntervalList.normal(this, 1));
 
     final itemSize = rld.itemSize;
     final animation = _createAnimation(
       animator.resizingDuringReordering(itemSize, itemSize),
     )..complete();
-    final holder = _ReorderHolderInterval();
-    final open = _ReorderOpeningInterval(
+    final holder = ReorderHolderInterval();
+    final open = ReorderOpeningInterval(
       holder,
       animation,
       itemSize,
@@ -1251,7 +1277,7 @@ class _IntervalManager with TickerProviderMixin {
       1,
       1,
       toPopUpList: popUpList,
-      flags: const _UpdateFlags(_UpdateFlags.popupPick),
+      flags: const IntervalUpdateFlags(IntervalUpdateFlags.popupPick),
     );
 
     reorderLayoutData!.openingInterval = open;
@@ -1269,7 +1295,7 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void reorderUpdateDropListIndex(
-    _NormalInterval interval,
+    NormalInterval interval,
     int offset,
     int newDropIndex,
   ) {
@@ -1281,7 +1307,7 @@ class _IntervalManager with TickerProviderMixin {
 
     final popUpList = oldOpeningInterval.popUpList;
     final fromSize = oldOpeningInterval.currentSize;
-    final closingInterval = _ReorderClosingInterval(
+    final closingInterval = ReorderClosingInterval(
       _createAnimation(animator.resizingDuringReordering(fromSize, 0.0)),
       fromSize,
     );
@@ -1293,7 +1319,7 @@ class _IntervalManager with TickerProviderMixin {
     );
 
     final itemSize = reorderLayoutData!.itemSize;
-    final newOpeningInterval = _ReorderOpeningInterval(
+    final newOpeningInterval = ReorderOpeningInterval(
       holder,
       _createAnimation(animator.resizingDuringReordering(0.0, itemSize)),
       0,
@@ -1331,7 +1357,7 @@ class _IntervalManager with TickerProviderMixin {
             animator.resizingDuringReordering(0, reorderLayoutData!.itemSize),
           )..start()) // we must animate even the smallest movements!
         : openingInterval.animation;
-    final movingInterval = _MovingInterval(
+    final movingInterval = MovingInterval(
       animation,
       _createAnimation(animator.moving())
         ..start(), // we must animate even the smallest movements!
@@ -1343,7 +1369,7 @@ class _IntervalManager with TickerProviderMixin {
 
     if (cancel) {
       final fromSize = openingInterval.currentSize;
-      final closingInterval = _ReorderClosingInterval(
+      final closingInterval = ReorderClosingInterval(
         _createAnimation(animator.resizingDuringReordering(fromSize, 0.0))
           ..start(), // we must animate even the smallest movements!
         fromSize,
@@ -1358,7 +1384,7 @@ class _IntervalManager with TickerProviderMixin {
         movingInterval.iterable(),
         updateCallback:
             (
-              _IntervalList list,
+              IntervalList list,
               int index,
               int oldBuildCount,
               int newBuildCount,
@@ -1370,7 +1396,7 @@ class _IntervalManager with TickerProviderMixin {
                 1,
                 popUpList: oldPopUpList,
                 toPopUpList: newPopUpList,
-                flags: const _UpdateFlags(_UpdateFlags.popupPick),
+                flags: const IntervalUpdateFlags(IntervalUpdateFlags.popupPick),
               );
             },
       );
@@ -1382,7 +1408,7 @@ class _IntervalManager with TickerProviderMixin {
         movingInterval.iterable(),
         updateCallback:
             (
-              _IntervalList list,
+              IntervalList list,
               int index,
               int oldBuildCount,
               int newBuildCount,
@@ -1393,7 +1419,7 @@ class _IntervalManager with TickerProviderMixin {
                 1,
                 popUpList: oldPopUpList,
                 toPopUpList: newPopUpList,
-                flags: const _UpdateFlags(_UpdateFlags.popupPick),
+                flags: const IntervalUpdateFlags(IntervalUpdateFlags.popupPick),
               );
               addUpdate(index, oldBuildCount, newBuildCount);
             },
@@ -1411,9 +1437,9 @@ class _IntervalManager with TickerProviderMixin {
   }
 
   void _reorderUpdateAllClosingIntervals() {
-    list.whereType<_ReorderClosingInterval>().forEach((oldClosingInterval) {
+    list.whereType<ReorderClosingInterval>().forEach((oldClosingInterval) {
       final fromSize = oldClosingInterval.currentSize;
-      final newClosingInterval = _ReorderClosingInterval(
+      final newClosingInterval = ReorderClosingInterval(
         _createAnimation(animator.resizingDuringReordering(fromSize, 0.0))
           ..start(), // we must animate even the smallest movements!
         fromSize,
@@ -1426,89 +1452,52 @@ class _IntervalManager with TickerProviderMixin {
     });
   }
 
-  // Retained for the legacy controller diagnostic hook.
-  bool _moveit = true;
-  void test() {
-    _moveit = !_moveit;
-    coordinate();
-  }
-
   @override
   String toString() => list.toString();
-}
-
-abstract class _ListIntervalInterface extends BuildContext {
-  AnimatedSliverChildDelegate get delegate;
-  bool get isHorizontal;
-  Widget wrapWidget(
-    AnimatedWidgetBuilder builder,
-    int index,
-    AnimatedWidgetBuilderData data, [
-    bool map = true,
-  ]);
-  void resizingIntervalUpdated(_AnimatedSpaceInterval interval, double delta);
-  Future<_Measure> measureItems(
-    _Cancelled? cancelled,
-    int count,
-    IndexedWidgetBuilder builder, [
-    double startingSize = 0,
-    int startingCount = 0,
-  ]);
-  double measureItem(Widget widget);
-  void markNeedsBuild();
-  void markNeedsLayout();
-  _SizeResult? getItemSizesFromSliverList(int buildFrom, int buildTo);
-  _Measure estimateLayoutOffset(
-    int buildIndex,
-    int childCount, {
-    double? time,
-    _MovingPopUpList? popUpList,
-  });
-  void reorderCancel();
 }
 
 class _MoveBundle {
   _MoveBundle(this.list);
 
-  final _IntervalList list;
+  final IntervalList list;
 
-  List<_Interval> moveList = [];
+  List<ListInterval> moveList = [];
 
-  final callbacks = <_Interval Function()>[];
+  final callbacks = <ListInterval Function()>[];
 
-  void add(Iterable<_Interval> intervals) {
+  void add(Iterable<ListInterval> intervals) {
     moveList.addAll(intervals);
   }
 
-  void addReoderHolderInterval(_ReorderHolderInterval interval) {
+  void addReoderHolderInterval(ReorderHolderInterval interval) {
     flush();
     callbacks.add(() {
       return interval;
     });
   }
 
-  void addMovingInterval(_MovingInterval interval, int leading, int trailing) {
+  void addMovingInterval(MovingInterval interval, int leading, int trailing) {
     flush();
     callbacks.add(() {
       final result = interval.split(leading, trailing);
       list.manager.performSplit(interval, result);
-      assert(result.middle!.single is _ReadyToPopupMoveInterval);
-      return (result.middle!.single as _WithDropInterval).dropInterval;
+      assert(result.middle!.single is ReadyToPopupMoveInterval);
+      return (result.middle!.single as WithDropInterval).dropInterval;
     });
   }
 
-  void addDropInterval(_DropInterval interval, int leading, int trailing) {
+  void addDropInterval(DropInterval interval, int leading, int trailing) {
     flush();
     callbacks.add(() {
       final result = interval.withDropInterval.dropSplit(leading, trailing);
       list.manager.performSplit(interval.withDropInterval, result);
-      final withDropInterval = result.middle!.single as _WithDropInterval;
-      list.replace(interval.iterable(), (_SplitResult r) sync* {
+      final withDropInterval = result.middle!.single as WithDropInterval;
+      list.replace(interval.iterable(), (SplitResult r) sync* {
         if (r.left != null) {
-          yield (r.left!.first as _WithDropInterval).dropInterval;
+          yield (r.left!.first as WithDropInterval).dropInterval;
         }
         if (r.right != null) {
-          yield (r.right!.first as _WithDropInterval).dropInterval;
+          yield (r.right!.first as WithDropInterval).dropInterval;
         }
       }(result));
       return withDropInterval.dropInterval;
@@ -1520,7 +1509,7 @@ class _MoveBundle {
 
     final finalMoveList = moveList;
     callbacks.add(() {
-      final interval = _ReadyToMoveInterval(_IntervalList(list.manager));
+      final interval = ReadyToMoveInterval(IntervalList(list.manager));
       list.replace(
         finalMoveList,
         interval.iterable(),
@@ -1532,8 +1521,8 @@ class _MoveBundle {
     moveList = [];
   }
 
-  List<_Interval> execute() {
-    final dropIntervals = <_Interval>[];
+  List<ListInterval> execute() {
+    final dropIntervals = <ListInterval>[];
     for (final cb in callbacks) {
       dropIntervals.add(cb());
     }

@@ -1,7 +1,21 @@
 # great_list_view_plus example
 
-A list that animates between two data sets and supports long-press reordering.
-Tap a row to switch lists.
+The bottom navigation separates **List** and **Tree**. Each page keeps its state
+when switching tabs; restart the app to restore all list data.
+
+| Page / mode | Try it |
+| --- | --- |
+| List / Automatic | Press **Switch data** to animate insertions, removals, moves and content/height changes. Toggle **Morph** to compare transitions. |
+| List / Manual | Use **Insert**, **Change**, **Remove**, **Replace**, **Move range** and **Batch**. These update application data and explicitly notify the controller. |
+| List / Sliver | Press **Dispatch new list** to use an explicit diff dispatcher with a header, animated sliver and footer. Toggle **Fixed extent** for both sliver implementations. |
+| List controls | Choose **Long press** or **Drag handle** for sorting. Toggle **Slow animation** for custom durations and curves. Enter a zero-based **Index** and press **Scroll to index**. On phones, scroll the toolbars horizontally for more controls. |
+| Tree / Animated list | Select a node, **Add child** or **Delete subtree**, and use the arrow to expand/collapse. Long press a leaf or closed branch, drag vertically to reorder and sideways (24 logical pixels per level) to change parent. The dragged row previews its permitted indentation. |
+| Tree / Plain ListView | The same callback-defined data feeds a standard ListView, with expansion and subtree editing. Tree data and expansion survive host changes; each host retains its scroll position. |
+
+The tree root stays visible and cannot be deleted or dragged. An open branch
+closes on its first long press; long press it again to move the entire closed
+subtree. Pointer cancellation and tab/mode changes cancel active drags.
+**Reset tree** restores deterministic sample data.
 
 From the repository root, run `fvm install`, `fvm use 3.47.9 --skip-pub-get`, and
 `make bootstrap`. `make analyze` checks the package and example together, and
@@ -46,7 +60,3 @@ library development files. See [Flutter platform setup](https://docs.flutter.dev
 Use `--release` instead of `--debug` for local release builds. Android release
 builds use the template's debug signing configuration for demonstration;
 publishing an app requires your own identity and signing configuration.
-
-CI runs the shared `make test` entry point for package and example tests, plus
-analysis, with Flutter 3.47.0 and 3.47.9. The example has no separate CI job or
-matrix. Build and run it locally using the Flutter commands above.

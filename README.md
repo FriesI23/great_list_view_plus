@@ -20,26 +20,15 @@ This package also provides a tree adapter to create a tree view without defining
 
 ![Example 2](https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/example2.gif)
 
-## Maintenance and compatibility
+## Requirements
+
+Requires **Flutter 3.47.0 / Dart 3.13.0 or newer**.
+Supports Android, iOS, macOS, Windows and Linux; web is not supported.
 
 This is a maintained fork of [great_list_view 0.2.3](https://github.com/DavideBelsole/great_list_view)
-by Davide Belsole, distributed under the original MIT license. The first maintained
-release is 0.3.0. Existing list APIs and animation behavior are preserved, including
-the exported `worker_manager` 5.x API.
+by Davide Belsole, distributed under the original MIT license.
 
-Requires **Flutter 3.47.0 / Dart 3.13.0 or newer**. Development uses Flutter 3.47.9
-(Dart 3.13.7). CI checks Flutter 3.47.0 and 3.47.9; formatting is checked
-only with the development SDK. These checks cover Dart analysis and Flutter tests,
-not device acceptance on every platform. The existing implementation uses
-`dart:io`; this release does not add web support.
-
-The [example](example/README.md) includes runnable Android, iOS, macOS, Windows,
-and Linux projects. The same list UI is used on each platform.
-
-Existing limitations remain: no separated-list constructor, no complete list
-semantics support, and no infinite lists.
-
-## Installing and migrating
+## Installation
 
 ```yaml
 dependencies:
@@ -50,77 +39,49 @@ dependencies:
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 ```
 
-Replace the old dependency and package URI. The old entry-point filename also
-works within the new package:
-`package:great_list_view_plus/great_list_view.dart`. Auxiliary imports such as
-`package:great_list_view_plus/tree_list_adapter.dart` keep their filenames.
-Public list classes, constructors, callbacks, and `Executor` remain available.
+Use this single entry point instead of the previous list and auxiliary imports.
+`worker_manager` is no longer re-exported; declare it directly if your app uses it.
 
-**Design library migration:** Material components now come from `material_ui`,
-including the surface added around reorderable rows and `ArrowButton`. Migrate
-the host app's Material imports, themes, ink widgets, and localization delegates
-to that package as well. Identically named SDK Material classes belong to a
-different library and do not share Material ancestry or themes. This release is
-not a transparent replacement for apps that still use `flutter/material.dart`.
-See the [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui).
-Pure list, tree, and transition code uses `flutter/widgets.dart`. Cupertino hosts
-are supported through the new `cupertino_ui` design library; this package does
-not directly use Cupertino components, so it has no runtime direct dependency
-on `cupertino_ui`.
+## Optional warm-up
+
+If the first large list update must respond quickly, call `GreatListView.warmUp()`
+once before `runApp()`. By default background diffing starts when the old and new
+list lengths total at least 500. Without this call, workers start on demand.
+
+```dart
+Future<void> main() async {
+  await GreatListView.warmUp(); // Optional, before the first large list diff.
+  runApp(const MyApp());
+}
+```
+
+## Standalone design packages
+
+Material components in this package use `material_ui`. Follow Flutter's
+[official migration guide for standalone `material_ui` and `cupertino_ui`](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui)
+when integrating the design libraries in your app.
+
+## Example
+
+The [runnable example](example/README.md) provides **List** and **Tree** tabs,
+covering automatic updates, manual notifications, slivers, reordering and tree
+views with or without animation.
+
+Existing limitations: no separated-list constructor, no complete list semantics
+support, and no infinite lists.
 
 ## Development
 
-Install [FVM](https://fvm.app/documentation/getting-started/installation), then run:
+Development uses Flutter 3.47.9 through the repository's FVM configuration.
 
 ```sh
 fvm install
-fvm use 3.47.9 --skip-pub-get
 make bootstrap
 make check
-fvm flutter pub publish --dry-run
 ```
 
-The Makefile uses `.fvm/flutter_sdk` when present and otherwise uses Flutter and
-Dart from `PATH`. Override both tools to check another SDK without changing the
-project pin:
-
-```sh
-make bootstrap analyze test \
-  FLUTTER=/path/to/flutter/bin/flutter DART=/path/to/flutter/bin/dart
-```
-
-Use `make help` for available targets. `make check` resolves dependencies, checks
-formatting, analyzes the package and example, and runs both test suites. `make aio`
-resolves dependencies and applies Dart fixes and formatting before analysis and
-tests. Use Flutter commands directly for builds and publishing.
-The library does not track its root lockfile; the private example keeps its own.
-CI resolves dependencies for each SDK.
-
-Test output supports readable logs, GitHub annotations, and optional JSON files:
-
-```sh
-mkdir -p test-results
-make test
-make test CI=1
-make test CI=1 MACHINE_OUT=test-results/all_test.log
-```
-
-`make test` runs package tests and then example tests in their own package
-contexts. Machine output supplements the readable reporter and keeps failing
-exit codes. `MACHINE_OUT` is relative to the repository root: the example report
-is saved beside it with an `example_` filename prefix, for example
-`all_test.log` and `example_all_test.log`. CI calls this same entry point;
-native example builds use Flutter commands locally.
-
-The reusable CI workflow runs for pull requests and pushes to `master`, manual
-tests, and version tags. Each SDK uploads separate test artifacts; the report
-workflow aggregates them without executing pull-request code. Publishing uses
-`v<major>.<minor>.<patch>` tags after the test matrix passes. Configure the
-repository and publishing workflow in pub.dev automated publishing before using
-that workflow. The first version must be published manually before automated
-publishing can be enabled; see [Pub automated publishing](https://dart.dev/tools/pub/automated-publishing).
-Actual publication is a separate release step; adding CI files does not publish
-the package.
+Use `make help` for other commands. See the [example guide](example/README.md)
+for platform run and build commands.
 
 ## Automatic Animated List View
 
@@ -161,7 +122,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -305,7 +265,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -474,7 +433,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -640,7 +598,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -797,7 +754,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -974,7 +930,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -1125,7 +1080,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -1300,7 +1254,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 
@@ -1467,7 +1420,7 @@ An example of the use of the feedback is shown in the tree list adapter example 
 
 ## Tree List Adapter
 
-Does you data consist of nodes in a hierarchical tree and you need a tree view to show them? No problem, you can use the `TreeistAdapter` class to convert the nodes to a linear list.
+Does you data consist of nodes in a hierarchical tree and you need a tree view to show them? No problem, you can use the `TreeListAdapter` class to convert the nodes to a linear list.
 Each node will therefore be an item of a list view corresponding to a specific index.
 The `nodeToIndex` and `indexToNode` methods can be used the former to determine the list index of a particular node and the latter to determine the node corresponding to a given index.
 The class internally uses a window that shows only a part of the tree properly converted into a linear list. Each time the index of a new node is requested, the window will be moved to contain that node.
@@ -1496,12 +1449,9 @@ import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
-import 'package:great_list_view_plus/tree_list_adapter.dart';
-import 'package:great_list_view_plus/other_widgets.dart';
 
 void main() {
   buildTree(rnd, root, 5, 3);
-  Executor().warmUp();
   runApp(App());
 }
 
@@ -1781,7 +1731,6 @@ import 'package:flutter/rendering.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 Future<void> main() async {
-  await Executor().warmUp();
   runApp(App());
 }
 

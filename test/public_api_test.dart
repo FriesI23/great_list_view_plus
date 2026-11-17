@@ -1,23 +1,44 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:great_list_view_plus/great_list_view.dart' as legacy;
 import 'package:great_list_view_plus/great_list_view_plus.dart';
-import 'package:great_list_view_plus/other_widgets.dart';
-import 'package:great_list_view_plus/ticker_mixin.dart';
-import 'package:great_list_view_plus/tree_list_adapter.dart';
 
 void main() {
-  test(
-    'old and new entry points expose identical public types and worker API',
-    () {
-      expect(legacy.AnimatedListController(), isA<AnimatedListController>());
-      expect(identical(legacy.Executor(), Executor()), isTrue);
-      expect(_TickerProvider(), isA<TickerProvider>());
-      _TickerProvider().dispose();
-    },
-  );
+  test('item visibility is a public value type', () {
+    const visibility = AnimatedListItemVisibility(25, 100);
+    expect(visibility.size, 25);
+    expect(visibility.referredSize, 100);
+    expect(visibility.percentage, 0.25);
+  });
 
-  testWidgets('auxiliary widget entry point builds', (tester) async {
+  testWidgets('single entry point exposes a standalone MorphTransition', (
+    tester,
+  ) async {
+    final value = ValueNotifier<String>('before');
+    addTearDown(value.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<String>(
+          valueListenable: value,
+          builder: (context, text, _) => Center(
+            child: MorphTransition(
+              duration: const Duration(milliseconds: 200),
+              comparator: (a, b) => (a as Text).data == (b as Text).data,
+              child: Text(text),
+            ),
+          ),
+        ),
+      ),
+    );
+    value.value = 'after';
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('after'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('before'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('single entry point builds auxiliary widgets', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: ArrowButton()));
     expect(find.byType(ArrowButton), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -48,5 +69,3 @@ void main() {
     },
   );
 }
-
-class _TickerProvider with TickerProviderMixin {}
