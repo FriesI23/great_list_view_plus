@@ -1,3 +1,7 @@
+// These existing public render interfaces use private implementation types.
+// Keep them source compatible with great_list_view 0.2.3.
+// ignore_for_file: library_private_types_in_public_api
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io' as io;
@@ -6,13 +10,14 @@ import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Material;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:great_list_view/src/dispatcher.dart';
-import 'package:great_list_view/src/morph_transition.dart'
+import 'package:great_list_view_plus/src/dispatcher.dart';
+import 'package:great_list_view_plus/src/morph_transition.dart'
     show MorphComparator, MorphTransition;
-import 'package:great_list_view/ticker_mixin.dart';
+import 'package:great_list_view_plus/ticker_mixin.dart';
 
 part 'animation.dart';
 part 'child_manager.dart';
@@ -46,22 +51,31 @@ class AnimatedWidgetBuilderData {
   /// The slot value you have returned from your [AnimatedListReorderModel].
   final Object? slot;
 
-  const AnimatedWidgetBuilderData(this.animation,
-      {this.measuring = false,
-      this.dragging = false,
-      this.slot,
-      this.moving = false});
+  const AnimatedWidgetBuilderData(
+    this.animation, {
+    this.measuring = false,
+    this.dragging = false,
+    this.slot,
+    this.moving = false,
+  });
 }
 
 /// The builder used to build the items of the list view.
 typedef AnimatedWidgetBuilder = Widget Function(
-    BuildContext context, int index, AnimatedWidgetBuilderData data);
+  BuildContext context,
+  int index,
+  AnimatedWidgetBuilderData data,
+);
 
 typedef InitialScrollOffsetCallback = double? Function(
-    SliverConstraints constraints);
+  SliverConstraints constraints,
+);
 
 typedef UpdateToOffsetCallback = double Function(
-    int index, int count, double remainingTime);
+  int index,
+  int count,
+  double remainingTime,
+);
 
 /// The part of the size of the item that is currently visible.
 class _PercentageSize {
@@ -99,53 +113,61 @@ extension _MeasureExtension on double {
 
 class _UpdateFlags {
   const _UpdateFlags([int flags = 0])
-      : _value = flags,
-        assert((flags &
-                ~(CLEAR_LAYOUT_OFFSET |
-                    KEEP_FIRST_LAYOUT_OFFSET |
-                    POPUP_PICK |
-                    POPUP_DROP |
-                    DISCARD_ELEMENT)) ==
-            0),
-        assert((flags & (CLEAR_LAYOUT_OFFSET | KEEP_FIRST_LAYOUT_OFFSET)) !=
-            KEEP_FIRST_LAYOUT_OFFSET),
-        assert(
-            (flags & (POPUP_PICK | POPUP_DROP)) != (POPUP_PICK | POPUP_DROP));
+    : _value = flags,
+      assert(
+        (flags &
+                ~(clearLayoutOffset |
+                    keepFirstLayoutOffset |
+                    popupPick |
+                    popupDrop |
+                    discardElement)) ==
+            0,
+      ),
+      assert(
+        (flags & (clearLayoutOffset | keepFirstLayoutOffset)) !=
+            keepFirstLayoutOffset,
+      ),
+      assert((flags & (popupPick | popupDrop)) != (popupPick | popupDrop));
 
   final int _value;
 
-  static const int CLEAR_LAYOUT_OFFSET = 1 << 0;
-  static const int KEEP_FIRST_LAYOUT_OFFSET = 1 << 1;
-  static const int DISCARD_ELEMENT = 1 << 2;
-  static const int POPUP_PICK = 1 << 3;
-  static const int POPUP_DROP = 1 << 4;
+  static const int clearLayoutOffset = 1 << 0;
+  static const int keepFirstLayoutOffset = 1 << 1;
+  static const int discardElement = 1 << 2;
+  static const int popupPick = 1 << 3;
+  static const int popupDrop = 1 << 4;
 
   int get value => _value;
 
   bool get hasClearLayoutOffset =>
-      (_value & CLEAR_LAYOUT_OFFSET) == CLEAR_LAYOUT_OFFSET;
+      (_value & clearLayoutOffset) == clearLayoutOffset;
   bool get hasKeepFirstLayoutOffset =>
-      (_value & KEEP_FIRST_LAYOUT_OFFSET) == KEEP_FIRST_LAYOUT_OFFSET;
-  bool get hasDiscardElement => (_value & DISCARD_ELEMENT) == DISCARD_ELEMENT;
-  bool get hasPopupPick => (_value & POPUP_PICK) == POPUP_PICK;
-  bool get hasPopupDrop => (_value & POPUP_DROP) == POPUP_DROP;
+      (_value & keepFirstLayoutOffset) == keepFirstLayoutOffset;
+  bool get hasDiscardElement => (_value & discardElement) == discardElement;
+  bool get hasPopupPick => (_value & popupPick) == popupPick;
+  bool get hasPopupDrop => (_value & popupDrop) == popupDrop;
 
   @override
   String toString() => [
-        if (hasClearLayoutOffset) 'CLEAR_LAYOUT_OFFSET',
-        if (hasKeepFirstLayoutOffset) 'KEEP_FIRST_LAYOUT_OFFSET',
-        if (hasDiscardElement) 'DISCARD_ELEMENT',
-        if (hasPopupPick) 'POPUP_PICK',
-        if (hasPopupDrop) 'POPUP_DROP'
-      ].join(', ');
+    if (hasClearLayoutOffset) 'clearLayoutOffset',
+    if (hasKeepFirstLayoutOffset) 'keepFirstLayoutOffset',
+    if (hasDiscardElement) 'discardElement',
+    if (hasPopupPick) 'popupPick',
+    if (hasPopupDrop) 'popupDrop',
+  ].join(', ');
 }
 
 class _Update {
-  _Update(this.index, this.oldBuildCount, this.newBuildCount,
-      [this.flags = const _UpdateFlags(), this.popUpList, this.toPopUpList])
-      : assert(index >= 0 && oldBuildCount >= 0 && newBuildCount >= 0),
-        assert(!flags.hasPopupPick || toPopUpList != null),
-        assert(!flags.hasPopupDrop || popUpList != null);
+  _Update(
+    this.index,
+    this.oldBuildCount,
+    this.newBuildCount, [
+    this.flags = const _UpdateFlags(),
+    this.popUpList,
+    this.toPopUpList,
+  ]) : assert(index >= 0 && oldBuildCount >= 0 && newBuildCount >= 0),
+       assert(!flags.hasPopupPick || toPopUpList != null),
+       assert(!flags.hasPopupDrop || popUpList != null);
 
   final int index;
   final int oldBuildCount, newBuildCount;
@@ -160,20 +182,28 @@ class _Update {
 }
 
 typedef _IntervalBuilder = Widget Function(
-    BuildContext context, int index, AnimatedWidgetBuilderData data);
+  BuildContext context,
+  int index,
+  AnimatedWidgetBuilderData data,
+);
 
 // Creates a copy of an interval builder possibly adding more offset.
 // If the offset is zero, the same interval builder is returned.
 _IntervalBuilder? offsetIntervalBuilder(
-    final _IntervalBuilder? iBuilder, final int offset) {
+  _IntervalBuilder? iBuilder,
+  int offset,
+) {
   if (offset == 0 || iBuilder == null) return iBuilder;
   assert(offset > 0);
   return (context, index, data) => iBuilder.call(context, index + offset, data);
 }
 
 // Joins two interval builder and returns a new merged one.
-_IntervalBuilder joinBuilders(final _IntervalBuilder leftBuilder,
-    final _IntervalBuilder rightBuilder, final int leftCount) {
+_IntervalBuilder joinBuilders(
+  _IntervalBuilder leftBuilder,
+  _IntervalBuilder rightBuilder,
+  int leftCount,
+) {
   assert(leftCount > 0);
   return (context, index, data) => (index < leftCount)
       ? leftBuilder.call(context, index, data)
@@ -260,7 +290,9 @@ abstract class _PopUpList {
       final delta = updates
           .where((upd) => upd.popUpList == this && !upd.flags.hasPopupDrop)
           .fold<int>(
-              0, (pv, upd) => pv + upd.newBuildCount - upd.oldBuildCount);
+            0,
+            (pv, upd) => pv + upd.newBuildCount - upd.oldBuildCount,
+          );
       return lastBuildCount + delta == popUpBuildCount;
     }());
     return true;
@@ -343,7 +375,11 @@ class _SizeResult {
 }
 
 typedef _UpdateCallback = void Function(
-    _IntervalList list, int index, int oldBuildCount, int newBuildCount);
+  _IntervalList list,
+  int index,
+  int oldBuildCount,
+  int newBuildCount,
+);
 
 //
 // Debug
@@ -357,7 +393,6 @@ void dbgBegin(String message) {
 }
 
 void dbgPrint(String message) {
-  // debugPrintSynchronously('$_spaces$s');
   io.stderr.writeln('$_spaces$message');
 }
 
@@ -371,10 +406,14 @@ void dbgEnd() {
   dbgPrint('}');
 }
 
+// Retained for source compatibility with the original public API.
+// ignore: constant_identifier_names
 const DEBUG_ENABLED = false;
 
-void Function(String message) _dbgBegin =
-    kDebugMode && DEBUG_ENABLED ? dbgBegin : (m) {};
-void Function(String message) _dbgPrint =
-    kDebugMode && DEBUG_ENABLED ? dbgPrint : (m) {};
+void Function(String message) _dbgBegin = kDebugMode && DEBUG_ENABLED
+    ? dbgBegin
+    : (m) {};
+void Function(String message) _dbgPrint = kDebugMode && DEBUG_ENABLED
+    ? dbgPrint
+    : (m) {};
 void Function() _dbgEnd = kDebugMode && DEBUG_ENABLED ? dbgEnd : () {};

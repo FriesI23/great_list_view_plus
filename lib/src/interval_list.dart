@@ -1,15 +1,16 @@
 part of 'core.dart';
 
 typedef _DistributeNotificationCallback = void Function(
-    _Interval interval,
-    _IntervalList list,
-    int removeCount,
-    int insertCount,
-    int leading,
-    int trailing,
-    AnimatedWidgetBuilder? offListItemBuilder,
-    int offListItemBuilderOffset,
-    Object? params);
+  _Interval interval,
+  _IntervalList list,
+  int removeCount,
+  int insertCount,
+  int leading,
+  int trailing,
+  AnimatedWidgetBuilder? offListItemBuilder,
+  int offListItemBuilderOffset,
+  Object? params,
+);
 
 /// This class handles all changes to the list view by breaking up the entire list as a
 /// list of contigous intervals, each with its own meaning.
@@ -55,8 +56,11 @@ class _IntervalList extends _LinkedList<_Interval>
   // List manipulation
   //
 
-  void remove(Iterable<_Interval> intervals,
-      {_UpdateCallback? updateCallback, bool dispose = true}) {
+  void remove(
+    Iterable<_Interval> intervals, {
+    _UpdateCallback? updateCallback,
+    bool dispose = true,
+  }) {
     assert(_debugAssertNotDisposed());
     assert(debugAssertIntervalsConsistency(intervals));
 
@@ -71,15 +75,19 @@ class _IntervalList extends _LinkedList<_Interval>
       _leftMostDirtyInterval = next;
     }
 
-    intervals.forEach((i) {
+    for (var i in intervals) {
       i._remove();
       if (dispose) i.dispose();
-    });
+    }
 
     holder?.onChanged();
 
     updateCallback?.call(
-        this, index + (holder?.parentBuildOffset ?? 0), oldBuildCount, 0);
+      this,
+      index + (holder?.parentBuildOffset ?? 0),
+      oldBuildCount,
+      0,
+    );
 
     changed = true;
 
@@ -87,10 +95,12 @@ class _IntervalList extends _LinkedList<_Interval>
   }
 
   void replace(
-      Iterable<_Interval> oldIntervals, Iterable<_Interval> newIntervals,
-      {_UpdateCallback? updateCallback,
-      _IntervalList? outSubList,
-      VoidCallback? intermediateCallback}) {
+    Iterable<_Interval> oldIntervals,
+    Iterable<_Interval> newIntervals, {
+    _UpdateCallback? updateCallback,
+    _IntervalList? outSubList,
+    VoidCallback? intermediateCallback,
+  }) {
     assert(_debugAssertNotDisposed());
     assert(debugAssertIntervalsConsistency(oldIntervals));
 
@@ -112,11 +122,11 @@ class _IntervalList extends _LinkedList<_Interval>
       newIntervals = newIntervals.toList();
     }
 
-    newIntervals.forEach((i) {
+    for (var i in newIntervals) {
       assert(!oldIntervals.contains(i));
       i.list?.remove(i.iterable(), dispose: false);
       i._invalidate();
-    });
+    }
 
     final next = oldIntervals.last.next;
     final prev = oldIntervals.first.previous;
@@ -138,10 +148,10 @@ class _IntervalList extends _LinkedList<_Interval>
     for (final i in newIntervals) {
       oldIntervals.first._insertBefore(i);
     }
-    oldIntervals.forEach((i) {
+    for (var i in oldIntervals) {
       i._remove();
       outSubList == null ? i.dispose() : outSubList._add(i);
-    });
+    }
 
     if (outSubList != null) {
       assert(outSubList.isNotEmpty);
@@ -153,13 +163,20 @@ class _IntervalList extends _LinkedList<_Interval>
     assert(debugDirtyConsistency());
 
     updateCallback?.call(
-        this, firstNewInterval.actualBuildOffset, oldBuildCount, newBuildCount);
+      this,
+      firstNewInterval.actualBuildOffset,
+      oldBuildCount,
+      newBuildCount,
+    );
 
     changed = true;
   }
 
-  void insertAfter(_Interval interval, Iterable<_Interval> newIntervals,
-      {_UpdateCallback? updateCallback}) {
+  void insertAfter(
+    _Interval interval,
+    Iterable<_Interval> newIntervals, {
+    _UpdateCallback? updateCallback,
+  }) {
     assert(_debugAssertNotDisposed());
     assert(interval._list == this);
 
@@ -186,13 +203,20 @@ class _IntervalList extends _LinkedList<_Interval>
     assert(debugDirtyConsistency());
 
     updateCallback?.call(
-        this, firstNewInterval.actualBuildOffset, 0, newBuildCount);
+      this,
+      firstNewInterval.actualBuildOffset,
+      0,
+      newBuildCount,
+    );
 
     changed = true;
   }
 
-  void insertBefore(_Interval interval, Iterable<_Interval> newIntervals,
-      {_UpdateCallback? updateCallback}) {
+  void insertBefore(
+    _Interval interval,
+    Iterable<_Interval> newIntervals, {
+    _UpdateCallback? updateCallback,
+  }) {
     assert(_debugAssertNotDisposed());
     assert(interval._list == this);
 
@@ -221,7 +245,11 @@ class _IntervalList extends _LinkedList<_Interval>
     assert(debugDirtyConsistency());
 
     updateCallback?.call(
-        this, firstNewInterval.actualBuildOffset, 0, newBuildCount);
+      this,
+      firstNewInterval.actualBuildOffset,
+      0,
+      newBuildCount,
+    );
 
     changed = true;
   }
@@ -235,8 +263,17 @@ class _IntervalList extends _LinkedList<_Interval>
   ) {
     assert(_debugAssertNotDisposed());
     final middleItemCount = itemCount - leading - trailing;
-    distributeNotification(leading, middleItemCount, middleItemCount, null, 0,
-        (interval, list, count, _, leading, trailing, __, ___, ____) {
+    distributeNotification(leading, middleItemCount, middleItemCount, null, 0, (
+      interval,
+      list,
+      count,
+      _,
+      leading,
+      trailing,
+      _,
+      _,
+      _,
+    ) {
       assert(interval is! _SubListInterval);
       final result = interval.split(leading, trailing);
       manager.performSplit(interval, result);
@@ -287,7 +324,6 @@ class _IntervalList extends _LinkedList<_Interval>
     int offListBuilderOffset,
     _DistributeNotificationCallback callback, {
     Object? params,
-    // bool Function(Interval left, Interval right)? borderIntervalChooser,
   }) {
     assert(_debugAssertNotDisposed());
     _Interval? interval = first;
@@ -309,26 +345,33 @@ class _IntervalList extends _LinkedList<_Interval>
         final leading = from - ifrom;
         if (to <= ito) {
           final trailing = ito - to;
-          // final bool left;
-          // if (checkBorder && trailing == 0 && leading == ic) {
-          //   left = (nextInterval == null ||
-          //       (borderIntervalChooser?.call(interval, nextInterval) ?? true));
-          // } else {
-          //   left = true;
-          // }
-          // if (left) {
-          callback(interval, this, removeCount, insertCount, leading, trailing,
-              offListItemBuilder, offListBuilderOffset, params);
+          callback(
+            interval,
+            this,
+            removeCount,
+            insertCount,
+            leading,
+            trailing,
+            offListItemBuilder,
+            offListBuilderOffset,
+            params,
+          );
           return;
-          // } else {
-          //   ifrom += ic;
-          // }
         } else {
           assert(!checkBorder);
           final rem = ito - from;
           final ins = math.min(rem, insertCount);
-          callback(interval, this, rem, ins, leading, 0, offListItemBuilder,
-              offListBuilderOffset, params);
+          callback(
+            interval,
+            this,
+            rem,
+            ins,
+            leading,
+            0,
+            offListItemBuilder,
+            offListBuilderOffset,
+            params,
+          );
           ifrom = from + ins;
           from = ito + ins - rem;
           offListBuilderOffset += rem;
@@ -397,9 +440,11 @@ class _IntervalList extends _LinkedList<_Interval>
   void dispose() {
     assert(_debugAssertNotDisposed());
     final l = toList();
-    l.forEach((i) => i
-      .._remove()
-      ..dispose());
+    for (var i in l) {
+      i
+        .._remove()
+        ..dispose();
+    }
     popUpList = null;
     holder = null;
     _leftMostDirtyInterval = null;
@@ -448,9 +493,11 @@ class _IntervalList extends _LinkedList<_Interval>
       var buildOffset = 0;
       var itemOffset = 0;
       _Interval? interval;
-      for (interval = firstOrNull;
-          interval != null && interval != _leftMostDirtyInterval;
-          interval = interval.next) {
+      for (
+        interval = firstOrNull;
+        interval != null && interval != _leftMostDirtyInterval;
+        interval = interval.next
+      ) {
         if (interval.isDirty) return false;
         if (interval.buildOffset != buildOffset ||
             interval.itemOffset != itemOffset) {
@@ -471,16 +518,24 @@ class _IntervalList extends _LinkedList<_Interval>
     return true;
   }
 
-  void addUpdate(int index, int oldBuildCount, int newBuildCount,
-      {_UpdateFlags flags = const _UpdateFlags()}) {
-    manager.addUpdate(index, oldBuildCount, newBuildCount,
-        popUpList: popUpList, flags: flags);
+  void addUpdate(
+    int index,
+    int oldBuildCount,
+    int newBuildCount, {
+    _UpdateFlags flags = const _UpdateFlags(),
+  }) {
+    manager.addUpdate(
+      index,
+      oldBuildCount,
+      newBuildCount,
+      popUpList: popUpList,
+      flags: flags,
+    );
   }
 }
 
 extension _InterableIntervalExtension on Iterable<_Interval> {
   int get buildCount => fold<int>(0, (pv, i) => pv + i.buildCount);
-  // int get itemCount => fold<int>(0, (pv, i) => pv + i.buildCount);
 
   Iterable<_Interval> get expandedIntervals sync* {
     for (final i in this) {

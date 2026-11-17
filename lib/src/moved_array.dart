@@ -5,7 +5,12 @@ class _MovedReplace {
   final bool? left;
 
   _MovedReplace(
-      this.from, this.length, this.count, this.startOffset, this.left);
+    this.from,
+    this.length,
+    this.count,
+    this.startOffset,
+    this.left,
+  );
 
   @override
   String toString() {
@@ -36,8 +41,8 @@ class _MovedArray {
   final List<_MovedRange> data;
 
   _MovedArray(int length)
-      : assert(length >= 0),
-        data = [_MovedRange(0, length)];
+    : assert(length >= 0),
+      data = [_MovedRange(0, length)];
 
   // _MovedArray.from(_MovedArray m)
   //     : data = [for (var i in m.data) _MovedRange.from(i)];
@@ -161,8 +166,9 @@ class _MovedArray {
     for (var j = 0; j < data.length; j++) {
       var n = data[j];
       final leftLength = math.max(0, math.min(length, n.from - from));
-      final leftCount =
-          (from < n.from && to <= n.from) ? count : math.min(leftLength, count);
+      final leftCount = (from < n.from && to <= n.from)
+          ? count
+          : math.min(leftLength, count);
       if (from < n.to || (from == n.to && from == this.length)) {
         final innerLength = math.max<int>(
           0,
@@ -185,9 +191,10 @@ class _MovedArray {
             left = null;
           }
           list.putIfAbsent(
-              n.from,
-              () => _MovedReplace(
-                  o + f, innerLength, innerCount, leftCount, left));
+            n.from,
+            () =>
+                _MovedReplace(o + f, innerLength, innerCount, leftCount, left),
+          );
         }
       }
       o += n._length;
@@ -204,54 +211,6 @@ class _MovedArray {
     if (data.isEmpty) data.add(_MovedRange(0, 0));
     return list.values.toList();
   }
-
-  // MovedReplace dataInsertPoint(int from) {
-  //   assert(length >= 0);
-  //   var o = 0;
-  //   final to = from + length;
-  //   MovedRange? pn;
-  //   for (var j = 0; j < data.length; j++) {
-  //     var n = data[j];
-  //     final leftLength = math.max(0, math.min(length, n.from - from));
-  //     final leftCount =
-  //         (from < n.from && to <= n.from) ? count : math.min(leftLength, count);
-  //     if (from < n.to || (from == n.to && from == this.length)) {
-  //       final innerLength = math.max<int>(
-  //         0,
-  //         math.min(n.to, to) - math.max(n.from, from),
-  //       );
-  //       final remainingCount = count - leftCount;
-  //       final innerCount = (to <= n.to)
-  //           ? remainingCount
-  //           : math.min(innerLength, remainingCount);
-  //       n._length += innerCount - innerLength;
-
-  //       if (to > n.from || from >= n.from) {
-  //         final f = math.max(0, from - n._from);
-  //         bool? left;
-  //         if (f == 0) {
-  //           left = false;
-  //         } else if (to == n.to) {
-  //           left = false;
-  //         } else {
-  //           left = null;
-  //         }
-  //         return MovedReplace(o + f, innerLength, innerCount, leftCount, left));
-  //       }
-  //     }
-  //     o += n._length;
-  //     n._from += leftCount - leftLength;
-  //     if (n._length == 0) {
-  //       data.removeAt(j--);
-  //     } else if (pn != null && pn.to == n._from) {
-  //       pn._length += n._length;
-  //       data.removeAt(j--);
-  //     } else {
-  //       pn = n;
-  //     }
-  //   }
-  //       throw Exception('this point should never have been reached');
-  // }
 
   void listMove(int from, int len, int to) {
     int r(int from, int len, int to) {

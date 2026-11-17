@@ -1,8 +1,9 @@
 part of 'core.dart';
 
 /// Default duration of a dismiss or incoming animation.
-const Duration kDismissOrIncomingAnimationDuration =
-    Duration(milliseconds: 500);
+const Duration kDismissOrIncomingAnimationDuration = Duration(
+  milliseconds: 500,
+);
 
 /// Default duration of a resizing animation.
 const Duration kResizeAnimationDuration = Duration(milliseconds: 500);
@@ -45,7 +46,10 @@ abstract class AnimatedSliverChildDelegate {
 
   /// Wrap a built child widget adding extra visual effects, animations and others.
   Widget wrapWidget(
-      BuildContext context, Widget widget, AnimatedWidgetBuilderData data);
+    BuildContext context,
+    Widget widget,
+    AnimatedWidgetBuilderData data,
+  );
 
   /// Provides an animator to customize all the animations.
   AnimatedListAnimator get animator;
@@ -81,10 +85,6 @@ class AnimatedSliverChildBuilderDelegate extends AnimatedSliverChildDelegate {
   ///
   /// Defaults to `true`.
   final bool addRepaintBoundaries;
-
-  // final bool addSemanticIndexes;
-  // final int semanticIndexOffset;
-  // final SemanticIndexCallback semanticIndexCallback;
 
   /// Whether to wrap each child in a [LongPressReorderable], if a reorder model has been provided.
   ///
@@ -187,12 +187,9 @@ class AnimatedSliverChildBuilderDelegate extends AnimatedSliverChildDelegate {
 
   AnimatedSliverChildBuilderDelegate(
     this.builder,
-    int initialChildCount, {
+    this.initialChildCount, {
     this.addAutomaticKeepAlives = true,
     this.addRepaintBoundaries = true,
-    // this.addSemanticIndexes = true,
-    // this.semanticIndexCallback = _kDefaultSemanticIndexCallback,
-    // this.semanticIndexOffset = 0,
     this.animator = const DefaultAnimatedListAnimator(),
     this.addLongPressReorderable = true,
     this.addAnimatedElevation = kDefaultAnimatedElevation,
@@ -204,22 +201,25 @@ class AnimatedSliverChildBuilderDelegate extends AnimatedSliverChildDelegate {
     this.initialScrollOffsetCallback,
     this.didFinishLayoutCallback,
     this.holdScrollOffset = false,
-  })  : assert(initialChildCount >= 0),
-        initialChildCount = initialChildCount;
+  }) : assert(initialChildCount >= 0);
 
   /// See [AnimatedSliverChildDelegate.wrapWidget].
   @override
   Widget wrapWidget(
-      BuildContext context, Widget child, AnimatedWidgetBuilderData data) {
+    BuildContext context,
+    Widget child,
+    AnimatedWidgetBuilderData data,
+  ) {
     if (data.measuring) return child;
     final originalChild = child;
     final Key? key = child.key != null ? _SaltedValueKey(child.key!) : null;
     if (morphComparator != null) {
       child = MorphTransition(
-          duration: morphDuration,
-          resizeWidgets: morphResizeWidgets,
-          comparator: morphComparator!,
-          child: child);
+        duration: morphDuration,
+        resizeWidgets: morphResizeWidgets,
+        comparator: morphComparator!,
+        child: child,
+      );
     }
     if (addAnimatedElevation != 0.0 && reorderModel != null) {
       child = Material(
@@ -236,13 +236,6 @@ class AnimatedSliverChildBuilderDelegate extends AnimatedSliverChildDelegate {
     if (addRepaintBoundaries) {
       child = RepaintBoundary(child: child);
     }
-    // if (addSemanticIndexes) {
-    //   final int? semanticIndex = semanticIndexCallback(child, index);
-    //   if (semanticIndex != null) {
-    //     child = IndexedSemantics(
-    //         index: semanticIndex + semanticIndexOffset, child: child);
-    //   }
-    // }
     if (addAutomaticKeepAlives) {
       child = AutomaticKeepAlive(child: child);
     }
@@ -280,7 +273,9 @@ abstract class AnimatedListAnimator {
   /// that appear only during reordering.
   /// The starting [fromSize] and ending [toSize] sizes of the interval are also provided.
   AnimatedListAnimationData resizingDuringReordering(
-      double fromSize, double toSize);
+    double fromSize,
+    double toSize,
+  );
 
   /// Provides info about the animation of a moving item.
   AnimatedListAnimationData moving();
@@ -310,48 +305,64 @@ class DefaultAnimatedListAnimator extends AnimatedListAnimator {
   @override
   AnimatedListAnimationData dismissDuringIncoming(double dismissTime) {
     return AnimatedListAnimationData(
-        Tween(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: dismissIncomingCurve.flipped)),
-        dismissIncomingDuration,
-        1.0 - dismissTime);
+      Tween(
+        begin: 1.0,
+        end: 0.0,
+      ).chain(CurveTween(curve: dismissIncomingCurve.flipped)),
+      dismissIncomingDuration,
+      1.0 - dismissTime,
+    );
   }
 
   /// See [AnimatedListAnimator.dismiss].
   @override
   AnimatedListAnimationData dismiss() {
     return AnimatedListAnimationData(
-        Tween(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: dismissIncomingCurve)),
-        dismissIncomingDuration);
+      Tween(
+        begin: 1.0,
+        end: 0.0,
+      ).chain(CurveTween(curve: dismissIncomingCurve)),
+      dismissIncomingDuration,
+    );
   }
 
   /// See [AnimatedListAnimator.incoming].
   @override
   AnimatedListAnimationData incoming() {
     return AnimatedListAnimationData(
-        CurveTween(curve: dismissIncomingCurve), dismissIncomingDuration);
+      CurveTween(curve: dismissIncomingCurve),
+      dismissIncomingDuration,
+    );
   }
 
   /// See [AnimatedListAnimator.resizing].
   @override
   AnimatedListAnimationData resizing(double fromSize, double toSize) {
     return AnimatedListAnimationData(
-        CurveTween(curve: resizeCurve), resizeDuration);
+      CurveTween(curve: resizeCurve),
+      resizeDuration,
+    );
   }
 
   /// See [AnimatedListAnimator.resizingDuringReordering].
   @override
   AnimatedListAnimationData resizingDuringReordering(
-      double fromSize, double toSize) {
+    double fromSize,
+    double toSize,
+  ) {
     return AnimatedListAnimationData(
-        CurveTween(curve: reorderCurve), reorderDuration);
+      CurveTween(curve: reorderCurve),
+      reorderDuration,
+    );
   }
 
   /// See [AnimatedListAnimator.moving].
   @override
   AnimatedListAnimationData moving() {
     return AnimatedListAnimationData(
-        CurveTween(curve: movingCurve), movingDuration);
+      CurveTween(curve: movingCurve),
+      movingDuration,
+    );
   }
 }
 
@@ -365,9 +376,11 @@ class DefaultAnimatedListAnimator extends AnimatedListAnimator {
 /// The [startTime] attribute, if is greater than zero, indicates that the animation won't start from the beginning
 /// but at a specific point.
 class AnimatedListAnimationData {
-  const AnimatedListAnimationData(this.animation, this.duration,
-      [this.startTime = 0.0])
-      : assert(startTime >= 0.0 && startTime <= 1.0);
+  const AnimatedListAnimationData(
+    this.animation,
+    this.duration, [
+    this.startTime = 0.0,
+  ]) : assert(startTime >= 0.0 && startTime <= 1.0);
 
   final Animatable<double> animation;
   final Duration duration;
@@ -375,5 +388,5 @@ class AnimatedListAnimationData {
 }
 
 class _SaltedValueKey extends ValueKey<Key> {
-  const _SaltedValueKey(Key key) : super(key);
+  const _SaltedValueKey(super.key);
 }

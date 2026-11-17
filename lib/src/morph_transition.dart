@@ -1,8 +1,12 @@
+// These existing public render interfaces use private implementation types.
+// Keep them source compatible with great_list_view 0.2.3.
+// ignore_for_file: library_private_types_in_public_api
+
 import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../ticker_mixin.dart';
@@ -24,14 +28,14 @@ typedef MorphComparator = bool Function(Widget a, Widget b);
 /// biggest child (but only if their dimensions are obviously different).
 class MorphTransition extends RenderObjectWidget {
   const MorphTransition({
-    Key? key,
+    super.key,
     required this.child,
     required this.comparator,
     this.resizeWidgets = false,
     required this.duration,
     this.textDirection,
     this.clipBehavior = Clip.hardEdge,
-  }) : super(key: key);
+  });
 
   final Widget child;
   final MorphComparator comparator;
@@ -72,11 +76,10 @@ class MorphRenderStack extends RenderStack {
 
   MorphRenderStack(
     this._element, {
-    bool resizeChildrenWhenAnimating = false,
-    TextDirection? textDirection,
-    Clip clipBehavior = Clip.hardEdge,
-  })  : _resizeChildrenWhenAnimating = resizeChildrenWhenAnimating,
-        super(clipBehavior: clipBehavior, textDirection: textDirection);
+    this._resizeChildrenWhenAnimating = false,
+    super.textDirection,
+    super.clipBehavior,
+  });
 
   AnimationController _getAnimationOf(RenderBox child) =>
       _animations.putIfAbsent(child, () => _createAnimation());
@@ -95,13 +98,17 @@ class MorphRenderStack extends RenderStack {
 
   void _forwardAnimation(RenderBox child, AnimationController controller) {
     if (controller.status == AnimationStatus.forward ||
-        controller.status == AnimationStatus.completed) return;
+        controller.status == AnimationStatus.completed) {
+      return;
+    }
     controller.forward();
   }
 
   void _backwardAnimation(RenderBox child, AnimationController controller) {
     if (controller.status == AnimationStatus.reverse ||
-        controller.status == AnimationStatus.dismissed) return;
+        controller.status == AnimationStatus.dismissed) {
+      return;
+    }
     final t = controller.reverse();
 
     void remove(RenderBox child) {
@@ -114,7 +121,9 @@ class MorphRenderStack extends RenderStack {
     } else {
       t.whenComplete(() {
         if (controller.status == AnimationStatus.forward ||
-            controller.status == AnimationStatus.completed) return;
+            controller.status == AnimationStatus.completed) {
+          return;
+        }
         remove(child);
       });
     }
@@ -213,7 +222,10 @@ class MorphRenderStack extends RenderStack {
     assert(needsCompositing);
 
     void paintSingleChild(
-        RenderBox child, PaintingContext context, Offset offset) {
+      RenderBox child,
+      PaintingContext context,
+      Offset offset,
+    ) {
       final childParentData = child.parentData as StackParentData;
       context.paintChild(child, childParentData.offset + offset);
     }
@@ -237,9 +249,12 @@ class MorphRenderStack extends RenderStack {
           }
           i++;
         }
-        final newLayer = context.pushOpacity(offset, e.value,
-            (context, offset) => paintSingleChild(e.key!, context, offset),
-            oldLayer: oldLayer);
+        final newLayer = context.pushOpacity(
+          offset,
+          e.value,
+          (context, offset) => paintSingleChild(e.key!, context, offset),
+          oldLayer: oldLayer,
+        );
         if (handle == null) {
           layer = newLayer;
         } else {
@@ -256,8 +271,13 @@ class MorphRenderStack extends RenderStack {
       paintChildren(context, offset);
     } else {
       _clipRectLayer = context.pushClipRect(
-          needsCompositing, offset, Offset.zero & size, paintChildren,
-          clipBehavior: clipBehavior, oldLayer: _clipRectLayer);
+        needsCompositing,
+        offset,
+        Offset.zero & size,
+        paintChildren,
+        clipBehavior: clipBehavior,
+        oldLayer: _clipRectLayer,
+      );
     }
   }
 
@@ -332,7 +352,9 @@ class MorphRenderStack extends RenderStack {
 
   @override
   void dispose() {
-    _animations.values.forEach((e) => e.dispose());
+    for (var e in _animations.values) {
+      e.dispose();
+    }
     _animations.clear();
     _paintRenderObjects.clear();
     _disposeLayers(0);
@@ -346,7 +368,7 @@ class MorphRenderObjectElement extends RenderObjectElement
   Element? _topElement;
   final _removeList = <_Entry>[];
 
-  MorphRenderObjectElement(MorphTransition widget) : super(widget);
+  MorphRenderObjectElement(MorphTransition super.widget);
 
   @override
   MorphTransition get widget => super.widget as MorphTransition;
@@ -364,11 +386,16 @@ class MorphRenderObjectElement extends RenderObjectElement
 
   @override
   void moveRenderObjectChild(
-      RenderBox child, _Entry? oldSlot, _Entry? newSlot) {
+    RenderBox child,
+    _Entry? oldSlot,
+    _Entry? newSlot,
+  ) {
     final renderObject = this.renderObject;
     assert(child.parent == renderObject);
-    renderObject.move(child,
-        after: newSlot?.element.renderObject as RenderBox?);
+    renderObject.move(
+      child,
+      after: newSlot?.element.renderObject as RenderBox?,
+    );
     assert(renderObject == this.renderObject);
   }
 
@@ -418,8 +445,9 @@ class MorphRenderObjectElement extends RenderObjectElement
 
     late Element topElement;
     if (reusedElement == null) {
-      _list.add(_Entry(
-          topElement = updateChild(null, widget.child, _list.lastOrNull)!));
+      _list.add(
+        _Entry(topElement = updateChild(null, widget.child, _list.lastOrNull)!),
+      );
     } else {
       topElement = reusedElement;
     }
@@ -466,7 +494,7 @@ class MorphRenderObjectElement extends RenderObjectElement
   }
 }
 
-class _Entry extends LinkedListEntry<_Entry> {
+final class _Entry extends LinkedListEntry<_Entry> {
   final Element element;
   _Entry(this.element);
 }

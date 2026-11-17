@@ -45,14 +45,19 @@ class _DismissedAnimation extends _IntervalAnimation {
 }
 
 class _ControlledAnimation extends _IntervalAnimation {
-  _ControlledAnimation(TickerProvider vsync, this.animatable, Duration duration,
-      {double startTime = 0.0, this.onDispose, this.onCompleted})
-      : assert(startTime >= 0.0 && startTime <= 1.0),
-        _controller = AnimationController(
-          value: startTime,
-          vsync: vsync,
-          duration: duration,
-        ) {
+  _ControlledAnimation(
+    TickerProvider vsync,
+    this.animatable,
+    Duration duration, {
+    double startTime = 0.0,
+    this.onDispose,
+    this.onCompleted,
+  }) : assert(startTime >= 0.0 && startTime <= 1.0),
+       _controller = AnimationController(
+         value: startTime,
+         vsync: vsync,
+         duration: duration,
+       ) {
     _animation = _controller.drive(animatable);
   }
 

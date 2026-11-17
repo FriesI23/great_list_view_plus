@@ -1,9 +1,9 @@
-library tree_list_adapter;
+library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart'
+import 'package:flutter/widgets.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart'
     show AnimatedListController, AnimatedListView, AnimatedWidgetBuilderData;
 
 const int _kWindowSize = 80;
@@ -14,8 +14,12 @@ bool _kEquals(dynamic a, dynamic b) => a == b;
 /// the [AnimatedListView] connected to the [TreeListAdapter.controller].
 /// The [adapter] can refer to the whole tree or only to a specific section (subtree) of it.
 /// The [index] is the list index referred to the tree o subtree.
-typedef AnimatedListTreeBuilder<T> = Widget Function(BuildContext context,
-    TreeListAdapter<T> adapter, int index, AnimatedWidgetBuilderData data);
+typedef AnimatedListTreeBuilder<T> = Widget Function(
+  BuildContext context,
+  TreeListAdapter<T> adapter,
+  int index,
+  AnimatedWidgetBuilderData data,
+);
 
 /// Adapter that takes a tree model as input and transforms it into a linear list.
 ///
@@ -62,8 +66,8 @@ class TreeListAdapter<T> {
     this.startingLevel = 0,
     this.controller,
     this.builder,
-  })  : assert(controller == null || builder != null),
-        _list = _CircularList(windowSize) {
+  }) : assert(controller == null || builder != null),
+       _list = _CircularList(windowSize) {
     if (initialCount != null) {
       assert(initialCount == count);
       _count = initialCount;
@@ -107,26 +111,27 @@ class TreeListAdapter<T> {
   /// You can assign a new window size for the subtree via the [windowSize] parameter. If you set
   /// this to `null`, the sub tree will inherit the same [windowSize] of the original tree. By default
   /// `80` is used.
-  TreeListAdapter<T> subTreeOf(T node,
-      [bool includeRoot = false,
-      bool alwaysExpandRoot = true,
-      bool keepCurrentLevel = true,
-      int? windowSize = _kWindowSize]) {
-    var _this = this;
+  TreeListAdapter<T> subTreeOf(
+    T node, [
+    bool includeRoot = false,
+    bool alwaysExpandRoot = true,
+    bool keepCurrentLevel = true,
+    int? windowSize = _kWindowSize,
+  ]) {
     return TreeListAdapter(
       root: node,
-      parentOf: (n) => _this.parentOf(n),
+      parentOf: parentOf,
       childrenCount: childrenCount,
       childAt: childAt,
-      isNodeExpanded: (n) => (alwaysExpandRoot && equals(n, node))
-          ? true
-          : _this.isNodeExpanded(n),
+      isNodeExpanded: (n) =>
+          (alwaysExpandRoot && equals(n, node)) ? true : isNodeExpanded(n),
       indexOfChild: indexOfChild,
       equals: equals,
       includeRoot: includeRoot,
-      windowSize: windowSize ?? _this.windowSize,
-      startingLevel:
-          keepCurrentLevel ? (levelOf(node) + (includeRoot ? 0 : 1)) : 0,
+      windowSize: windowSize ?? this.windowSize,
+      startingLevel: keepCurrentLevel
+          ? (levelOf(node) + (includeRoot ? 0 : 1))
+          : 0,
     );
   }
 
@@ -182,8 +187,10 @@ class TreeListAdapter<T> {
   }
 
   int _ensureIndex(T node, int? index) {
-    assert((index == null && nodeToIndex(node) != null) ||
-        (index != null && nodeToIndex(node) == index));
+    assert(
+      (index == null && nodeToIndex(node) != null) ||
+          (index != null && nodeToIndex(node) == index),
+    );
     return index ?? nodeToIndex(node)!;
   }
 
@@ -221,32 +228,37 @@ class TreeListAdapter<T> {
   /// returned to indicate the range of list view items involved in the modification.
   ///
   /// Set [updateNode] to `true` if you want to notify the [controller] to rebuild the expanded node.
-  IntRange? notifyNodeExpanding(T node, void Function() expandFn,
-      {int? index,
-      bool dontNotifyController = false,
-      bool updateNode = false}) {
+  IntRange? notifyNodeExpanding(
+    T node,
+    void Function() expandFn, {
+    int? index,
+    bool dontNotifyController = false,
+    bool updateNode = false,
+  }) {
     index = _ensureIndex(node, index);
     final from = index + (includeRoot ? 0 : 1); // first child index
     final to = from + _countSubNodesOf(node);
     return _notify(
-        from,
-        to,
-        expandFn,
-        _insert,
-        dontNotifyController
-            ? null
-            : (from, count) {
-                controller!.batch(() {
-                  controller!.notifyInsertedRange(from, count);
-                  if (updateNode) {
-                    controller!.notifyChangedRange(
-                        from - 1,
-                        1,
-                        (context, idx, data) =>
-                            builder!.call(context, this, from - 1, data));
-                  }
-                });
+      from,
+      to,
+      expandFn,
+      _insert,
+      dontNotifyController
+          ? null
+          : (from, count) {
+              controller!.batch(() {
+                controller!.notifyInsertedRange(from, count);
+                if (updateNode) {
+                  controller!.notifyChangedRange(
+                    from - 1,
+                    1,
+                    (context, idx, data) =>
+                        builder!.call(context, this, from - 1, data),
+                  );
+                }
               });
+            },
+    );
   }
 
   /// This method has to be called when the [node] is about to be collapsed.
@@ -261,38 +273,44 @@ class TreeListAdapter<T> {
   /// returned to indicate the range of list view items involved in the modification.
   ///
   /// Set [updateNode] to `true` if you want to notify the [controller] to rebuild the collapsed node.
-  IntRange? notifyNodeCollapsing(T node, void Function() collapseFn,
-      {int? index,
-      bool dontNotifyController = false,
-      bool updateNode = false}) {
+  IntRange? notifyNodeCollapsing(
+    T node,
+    void Function() collapseFn, {
+    int? index,
+    bool dontNotifyController = false,
+    bool updateNode = false,
+  }) {
     index = _ensureIndex(node, index);
     final from = index + (includeRoot ? 0 : 1); // first child index
     final to = from + _countSubNodesOf(node);
     return _notify(
-        from,
-        to,
-        collapseFn,
-        _remove,
-        dontNotifyController
-            ? null
-            : (from, count) {
-                assert(builder != null);
-                final subAdapter = subTreeOf(node);
-                controller!.batch(() {
-                  controller!.notifyRemovedRange(
-                      from,
-                      count,
-                      (context, idx, data) =>
-                          builder!.call(context, subAdapter, idx, data));
-                  if (updateNode) {
-                    controller!.notifyChangedRange(
-                        from - 1,
-                        1,
-                        (context, idx, data) =>
-                            builder!.call(context, this, from - 1, data));
-                  }
-                });
+      from,
+      to,
+      collapseFn,
+      _remove,
+      dontNotifyController
+          ? null
+          : (from, count) {
+              assert(builder != null);
+              final subAdapter = subTreeOf(node);
+              controller!.batch(() {
+                controller!.notifyRemovedRange(
+                  from,
+                  count,
+                  (context, idx, data) =>
+                      builder!.call(context, subAdapter, idx, data),
+                );
+                if (updateNode) {
+                  controller!.notifyChangedRange(
+                    from - 1,
+                    1,
+                    (context, idx, data) =>
+                        builder!.call(context, this, from - 1, data),
+                  );
+                }
               });
+            },
+    );
   }
 
   /// This method has to be called when the new subtree [newSubTree] is about to be inserted
@@ -310,10 +328,14 @@ class TreeListAdapter<T> {
   /// Set [updateParentNode] to `true` if you want to notify the [controller] to rebuild the
   /// parent node involved.
   IntRange? notifyNodeInserting(
-      T newSubTree, T parentNode, int position, void Function() insertFn,
-      {int? index,
-      bool dontNotifyController = false,
-      bool updateParentNode = false}) {
+    T newSubTree,
+    T parentNode,
+    int position,
+    void Function() insertFn, {
+    int? index,
+    bool dontNotifyController = false,
+    bool updateParentNode = false,
+  }) {
     assert(newSubTree != null && parentNode != null);
     assert(position >= 0 && position <= childrenCount(parentNode));
     if (!isNodeExpanded(parentNode)) {
@@ -327,30 +349,32 @@ class TreeListAdapter<T> {
     }
     final to = from + countSizeOf(newSubTree);
     return _notify(
-        from,
-        to,
-        insertFn,
-        _insert,
-        dontNotifyController
-            ? null
-            : (from, count) {
-                controller!.batch(() {
-                  controller!.notifyInsertedRange(from, count);
-                  if (updateParentNode) {
-                    final parentNode = parentOf(newSubTree);
-                    if (parentNode != null) {
-                      final parentIndex = nodeToIndex(parentNode);
-                      if (parentIndex != null) {
-                        controller!.notifyChangedRange(
-                            parentIndex,
-                            1,
-                            (context, idx, data) => builder!
-                                .call(context, this, parentIndex, data));
-                      }
+      from,
+      to,
+      insertFn,
+      _insert,
+      dontNotifyController
+          ? null
+          : (from, count) {
+              controller!.batch(() {
+                controller!.notifyInsertedRange(from, count);
+                if (updateParentNode) {
+                  final parentNode = parentOf(newSubTree);
+                  if (parentNode != null) {
+                    final parentIndex = nodeToIndex(parentNode);
+                    if (parentIndex != null) {
+                      controller!.notifyChangedRange(
+                        parentIndex,
+                        1,
+                        (context, idx, data) =>
+                            builder!.call(context, this, parentIndex, data),
+                      );
                     }
                   }
-                });
+                }
               });
+            },
+    );
   }
 
   /// This method has to be called when the [node] is about to be removed.
@@ -366,45 +390,51 @@ class TreeListAdapter<T> {
   ///
   /// Set [updateParentNode] to `true` if you want to notify the [controller] to rebuild the
   /// parent node involved.
-  IntRange? notifyNodeRemoving(T node, void Function() removeFn,
-      {int? index,
-      bool dontNotifyController = false,
-      bool updateParentNode = false}) {
+  IntRange? notifyNodeRemoving(
+    T node,
+    void Function() removeFn, {
+    int? index,
+    bool dontNotifyController = false,
+    bool updateParentNode = false,
+  }) {
     assert(!equals(node, root)); // root cannot be removed!
     index = _ensureIndex(node, index);
     final from = index - (includeRoot ? 1 : 0);
     final to = from + countSizeOf(node);
     return _notify(
-        from,
-        to,
-        removeFn,
-        _remove,
-        dontNotifyController
-            ? null
-            : (from, count) {
-                assert(builder != null);
-                final subAdapter = subTreeOf(node, true, isNodeExpanded(node));
-                controller!.batch(() {
-                  controller!.notifyRemovedRange(
-                      from,
-                      count,
-                      (context, idx, data) =>
-                          builder!.call(context, subAdapter, idx, data));
-                  if (updateParentNode) {
-                    final parentNode = parentOf(node);
-                    if (parentNode != null) {
-                      final parentIndex = nodeToIndex(parentNode);
-                      if (parentIndex != null) {
-                        controller!.notifyChangedRange(
-                            parentIndex,
-                            1,
-                            (context, idx, data) => builder!
-                                .call(context, this, parentIndex, data));
-                      }
+      from,
+      to,
+      removeFn,
+      _remove,
+      dontNotifyController
+          ? null
+          : (from, count) {
+              assert(builder != null);
+              final subAdapter = subTreeOf(node, true, isNodeExpanded(node));
+              controller!.batch(() {
+                controller!.notifyRemovedRange(
+                  from,
+                  count,
+                  (context, idx, data) =>
+                      builder!.call(context, subAdapter, idx, data),
+                );
+                if (updateParentNode) {
+                  final parentNode = parentOf(node);
+                  if (parentNode != null) {
+                    final parentIndex = nodeToIndex(parentNode);
+                    if (parentIndex != null) {
+                      controller!.notifyChangedRange(
+                        parentIndex,
+                        1,
+                        (context, idx, data) =>
+                            builder!.call(context, this, parentIndex, data),
+                      );
                     }
                   }
-                });
+                }
               });
+            },
+    );
   }
 
   /// This method has to be called when a node is about to be moved.
@@ -422,12 +452,13 @@ class TreeListAdapter<T> {
   /// Set [updateParentNodes] to `true` if you want to notify the [controller] to rebuild the
   /// parent nodes involved.
   void notifyNodeMoving(
-      int fromIndex,
-      int toIndex,
-      int level,
-      void Function(T pNode, T removeNode) removeFn,
-      void Function(T pNode, T insertNode, int index) insertFn,
-      {bool updateParentNodes = false}) {
+    int fromIndex,
+    int toIndex,
+    int level,
+    void Function(T pNode, T removeNode) removeFn,
+    void Function(T pNode, T insertNode, int index) insertFn, {
+    bool updateParentNodes = false,
+  }) {
     assert(getPossibleLevelsOfMove(fromIndex, toIndex).isIn(level));
 
     final myself = indexToNode(fromIndex);
@@ -467,21 +498,35 @@ class TreeListAdapter<T> {
 
     final i2 = nodeToIndex(pNode);
 
-    notifyNodeRemoving(myself, () => removeFn(oldParentNode, myself),
-        dontNotifyController: true);
+    notifyNodeRemoving(
+      myself,
+      () => removeFn(oldParentNode, myself),
+      dontNotifyController: true,
+    );
 
-    notifyNodeInserting(myself, pNode, pos, () => insertFn(pNode, myself, pos),
-        dontNotifyController: true);
+    notifyNodeInserting(
+      myself,
+      pNode,
+      pos,
+      () => insertFn(pNode, myself, pos),
+      dontNotifyController: true,
+    );
 
     if (updateParentNodes) {
       controller!.batch(() {
         if (i1 != null) {
-          controller!.notifyChangedRange(i1, 1,
-              (context, idx, data) => builder!.call(context, this, i1, data));
+          controller!.notifyChangedRange(
+            i1,
+            1,
+            (context, idx, data) => builder!.call(context, this, i1, data),
+          );
         }
         if (i2 != null) {
-          controller!.notifyChangedRange(i2, 1,
-              (context, idx, data) => builder!.call(context, this, i2, data));
+          controller!.notifyChangedRange(
+            i2,
+            1,
+            (context, idx, data) => builder!.call(context, this, i2, data),
+          );
         }
       });
     }
@@ -509,8 +554,10 @@ class TreeListAdapter<T> {
     } else if (from <= _offset && to >= _endOffset) {
       _list.clear();
     } else {
-      _list.remove(math.max(from, _offset) - _offset,
-          math.min(to, _endOffset) - _offset);
+      _list.remove(
+        math.max(from, _offset) - _offset,
+        math.min(to, _endOffset) - _offset,
+      );
     }
   }
 
@@ -524,8 +571,10 @@ class TreeListAdapter<T> {
     } else if (from <= _offset && to >= _endOffset) {
       _list.clear();
     } else {
-      _list.insert(math.max(from, _offset) - _offset,
-          math.min(to, _endOffset) - _offset);
+      _list.insert(
+        math.max(from, _offset) - _offset,
+        math.min(to, _endOffset) - _offset,
+      );
     }
   }
 
@@ -549,7 +598,7 @@ class TreeListAdapter<T> {
   int? nodeToIndex(T node) {
     if (equals(node, root)) return (includeRoot ? 0 : -1);
     for (var i = 0; i < windowSize; i++) {
-      if (_list[i] != null && equals(_list[i]!, node)) {
+      if (_list[i] != null && equals(_list[i] as T, node)) {
         return i + _offset + (includeRoot ? 1 : 0);
       }
     }
@@ -588,8 +637,7 @@ class TreeListAdapter<T> {
         node = _cachedNode(i);
         if (node != null) {
           _iterateForward(node, i, index);
-          node = _cachedNode(index)!;
-          return node;
+          return _cachedNode(index) as T;
         }
       }
       if (++j < _endOffset) {
@@ -597,14 +645,12 @@ class TreeListAdapter<T> {
         node = _cachedNode(j);
         if (node != null) {
           _iterateBackward(node, j, index);
-          node = _cachedNode(index)!;
-          return node;
+          return _cachedNode(index) as T;
         }
       }
     } while (next);
     _iterateForward(root, -1, index);
-    node = _cachedNode(index)!;
-    return node;
+    return _cachedNode(index) as T;
   }
 
   void _iterateForward(T node, int index, int toIndex) {
@@ -749,9 +795,7 @@ class _CircularList<T> {
   int start, size;
   late List<T?> list;
 
-  _CircularList(this.size)
-      : assert(size > 0),
-        start = 0 {
+  _CircularList(this.size) : assert(size > 0), start = 0 {
     list = List<T?>.generate(size, (index) => null, growable: false);
   }
 
@@ -761,7 +805,7 @@ class _CircularList<T> {
     return list[(j < size) ? j : j - size];
   }
 
-  operator []=(int index, T? value) {
+  void operator []=(int index, T? value) {
     assert(index >= 0 && index < size);
     var j = index + start;
     list[(j < size) ? j : j - size] = value;

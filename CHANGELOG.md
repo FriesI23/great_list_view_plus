@@ -1,3 +1,15 @@
+## 0.3.0
+
+* Maintain the package as `great_list_view_plus`, based on `great_list_view` 0.2.3.
+* Require Flutter 3.47 / Dart 3.13 and newer, including Dart 3.13 generator
+  null-promotion fixes. Preserve existing public list and worker APIs.
+* Migrate Material components to `material_ui`; use core Flutter widgets for
+  design-independent code. Apps must use the standalone design libraries for
+  shared Material ancestry and theming. This is a compatibility change from the
+  original package, despite retaining its public list and worker APIs.
+* Add FVM configuration, modern Flutter linting, Makefile automation, regression
+  tests, and CI coverage for Flutter 3.47.0 and 3.47.9.
+
 ## [0.0.1] to [0.0.8] - 13-11-2020
 
 Initial alpha release. Includes `AnimatedSliverList`, `AnimatedListDiffDispatcher` and `TreeListAdapter` core classes.

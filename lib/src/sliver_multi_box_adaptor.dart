@@ -1,22 +1,30 @@
+// These existing public render interfaces use private implementation types.
+// Keep them source compatible with great_list_view 0.2.3.
+// ignore_for_file: library_private_types_in_public_api
+
 part of 'core.dart';
 
 abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     with
-        MultiContainerRenderObjectMixin<RenderBox,
-            MultiSliverMultiBoxAdaptorParentData, _PopUpList?>,
+        MultiContainerRenderObjectMixin<
+          RenderBox,
+          MultiSliverMultiBoxAdaptorParentData,
+          _PopUpList?
+        >,
         RenderSliverHelpers,
         RenderSliverWithKeepAliveMixin {
   /// Creates a sliver with multiple box children.
   ///
-  /// The [childManager] argument must not be null.
-  MultiRenderSliverMultiBoxAdaptor({
-    required MultiRenderSliverBoxChildManager childManager,
-  }) : _childManager = childManager {
+  /// The [_childManager] argument must not be null.
+  MultiRenderSliverMultiBoxAdaptor({required this._childManager}) {
     assert(() {
       _debugDanglingKeepAlives = <RenderBox>[];
       return true;
     }());
   }
+
+  // Measurement children are adopted temporarily, outside the child lists.
+  void _dropDisposableChild(RenderObject child) => dropChild(child);
 
   @override
   void setupParentData(RenderObject child) {
@@ -91,15 +99,15 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void insert(_PopUpList? popUpList, RenderBox child, {RenderBox? after}) {
+  void insert(_PopUpList? key, RenderBox child, {RenderBox? after}) {
     assert(!_keepAliveBucket.values.any((e) => e.containsValue(child)));
-    super.insert(popUpList, child, after: after);
-    assert(listOf(popUpList)!.firstChild != null);
+    super.insert(key, child, after: after);
+    assert(listOf(key)!.firstChild != null);
     assert(_debugVerifyChildOrder());
   }
 
   @override
-  void move(_PopUpList? toPopUpList, RenderBox child, {RenderBox? after}) {
+  void move(_PopUpList? newKey, RenderBox child, {RenderBox? after}) {
     // There are two scenarios:
     //
     // 1. The child is not keptAlive.
@@ -112,7 +120,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     final childParentData =
         child.parentData! as MultiSliverMultiBoxAdaptorParentData;
     if (!childParentData.keptAlive) {
-      super.move(toPopUpList, child, after: after);
+      super.move(newKey, child, after: after);
       childManager.didAdoptChild(child); // updates the slot in the parentData
       // Its slot may change even if super.move does not change the position.
       // In this case, we still want to mark as needs layout.
@@ -120,8 +128,7 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     } else {
       final fromPopUpList = childParentData.key;
       final fromKeepAliveBucket = _keepAliveBucket[fromPopUpList]!;
-      final toKeepAliveBucket =
-          _keepAliveBucket.putIfAbsent(toPopUpList, () => {});
+      final toKeepAliveBucket = _keepAliveBucket.putIfAbsent(newKey, () => {});
       // If the child in the bucket is not current child, that means someone has
       // already moved and replaced current child, and we cannot remove this child.
       if (fromKeepAliveBucket[childParentData.index] == child) {
@@ -138,8 +145,9 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
       // removed by updateChild. Thus, it is ok to overwrite it.
       assert(() {
         if (toKeepAliveBucket.containsKey(childParentData.index)) {
-          _debugDanglingKeepAlives
-              .add(toKeepAliveBucket[childParentData.index]!);
+          _debugDanglingKeepAlives.add(
+            toKeepAliveBucket[childParentData.index]!,
+          );
         }
         return true;
       }());
@@ -149,14 +157,14 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  void remove(_PopUpList? popUpList, RenderBox child) {
+  void remove(_PopUpList? key, RenderBox child) {
     final childParentData =
         child.parentData! as MultiSliverMultiBoxAdaptorParentData;
     if (!childParentData._keptAlive) {
-      super.remove(popUpList, child);
+      super.remove(key, child);
       return;
     }
-    final keepAliveBucket = _keepAliveBucket[popUpList]!;
+    final keepAliveBucket = _keepAliveBucket[key]!;
     assert(keepAliveBucket[childParentData.index] == child);
     assert(() {
       _debugDanglingKeepAlives.remove(child);
@@ -164,20 +172,25 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     }());
     keepAliveBucket.remove(childParentData.index);
     dropChild(child);
-    if (keepAliveBucket.isEmpty) _keepAliveBucket.remove(popUpList);
+    if (keepAliveBucket.isEmpty) _keepAliveBucket.remove(key);
   }
 
   @override
-  void removeAll(_PopUpList? popUpList) {
-    super.removeAll(popUpList);
-    final keepAliveBucket = _keepAliveBucket[popUpList]!;
-    keepAliveBucket.values.forEach((e) => dropChild(e));
+  void removeAll(_PopUpList? key) {
+    super.removeAll(key);
+    final keepAliveBucket = _keepAliveBucket[key]!;
+    for (var e in keepAliveBucket.values) {
+      dropChild(e);
+    }
     keepAliveBucket.clear();
-    _keepAliveBucket.remove(popUpList);
+    _keepAliveBucket.remove(key);
   }
 
-  void _createOrObtainChild(_PopUpList? popUpList, int index,
-      {required RenderBox? after}) {
+  void _createOrObtainChild(
+    _PopUpList? popUpList,
+    int index, {
+    required RenderBox? after,
+  }) {
     invokeLayoutCallback<SliverConstraints>((SliverConstraints constraints) {
       assert(constraints == this.constraints);
       final keepAliveBucket = _keepAliveBucket.putIfAbsent(popUpList, () => {});
@@ -265,8 +278,11 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// that call either, except for the one that is created and returned by
   /// `createChild`.
   @protected
-  bool addInitialChild(
-      {_PopUpList? popUpList, int index = 0, double layoutOffset = 0.0}) {
+  bool addInitialChild({
+    _PopUpList? popUpList,
+    int index = 0,
+    double layoutOffset = 0.0,
+  }) {
     assert(_debugAssertChildListLocked());
     final list = listOf(popUpList, true)!;
     assert(list.firstChild == null);
@@ -358,7 +374,10 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   /// [performLayout] is run, even if the arguments are both zero.
   @protected
   void collectGarbage(
-      _PopUpList? popUpList, int leadingGarbage, int trailingGarbage) {
+    _PopUpList? popUpList,
+    int leadingGarbage,
+    int trailingGarbage,
+  ) {
     assert(_debugAssertChildListLocked());
     final list = listOf(popUpList)!;
     assert(list.childCount >= leadingGarbage + trailingGarbage);
@@ -383,13 +402,15 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
           })
           .toList()
           .forEach((e) => _childManager.removeChild(popUpList, e));
-      assert(_keepAliveBucket.values
-          .expand((e) => e.values)
-          .where((RenderBox child) {
-        final childParentData =
-            child.parentData! as MultiSliverMultiBoxAdaptorParentData;
-        return !childParentData.keepAlive;
-      }).isEmpty);
+      assert(
+        _keepAliveBucket.values.expand((e) => e.values).where((
+          RenderBox child,
+        ) {
+          final childParentData =
+              child.parentData! as MultiSliverMultiBoxAdaptorParentData;
+          return !childParentData.keepAlive;
+        }).isEmpty,
+      );
     });
   }
 
@@ -423,14 +444,20 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   }
 
   @override
-  bool hitTestChildren(SliverHitTestResult result,
-      {required double mainAxisPosition, required double crossAxisPosition}) {
+  bool hitTestChildren(
+    SliverHitTestResult result, {
+    required double mainAxisPosition,
+    required double crossAxisPosition,
+  }) {
     var child = listOf(null)!.lastChild; // solo la lista principale!
     final boxResult = BoxHitTestResult.wrap(result);
     while (child != null) {
-      if (hitTestBoxChild(boxResult, child,
-          mainAxisPosition: mainAxisPosition,
-          crossAxisPosition: crossAxisPosition)) {
+      if (hitTestBoxChild(
+        boxResult,
+        child,
+        mainAxisPosition: mainAxisPosition,
+        crossAxisPosition: crossAxisPosition,
+      )) {
         return true;
       }
       child = childBefore(child);
@@ -485,8 +512,9 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   @override
   void paint(PaintingContext context, Offset offset) {
     _paint(null, context, offset);
-    childManager.listOfPopUps.reversed
-        .forEach((e) => _paint(e, context, offset));
+    for (var e in childManager.listOfPopUps.reversed) {
+      _paint(e, context, offset);
+    }
   }
 
   void _paint(_PopUpList? popUpList, PaintingContext context, Offset offset) {
@@ -500,7 +528,9 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
     final Offset mainAxisUnit, crossAxisUnit, originOffset;
     final bool addExtent;
     switch (applyGrowthDirectionToAxisDirection(
-        constraints.axisDirection, constraints.growthDirection)) {
+      constraints.axisDirection,
+      constraints.growthDirection,
+    )) {
       case AxisDirection.up:
         mainAxisUnit = const Offset(0.0, -1.0);
         crossAxisUnit = const Offset(1.0, 0.0);
@@ -557,9 +587,13 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     final list = listOf(null)!;
-    properties.add(DiagnosticsNode.message(list.firstChild != null
-        ? 'currently live children: ${indexOf(list.firstChild!)} to ${indexOf(list.lastChild!)}'
-        : 'no children current live'));
+    properties.add(
+      DiagnosticsNode.message(
+        list.firstChild != null
+            ? 'currently live children: ${indexOf(list.firstChild!)} to ${indexOf(list.lastChild!)}'
+            : 'no children current live',
+      ),
+    );
   }
 
   /// Asserts that the reified child list is not empty and has a contiguous
@@ -592,9 +626,12 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
         while (true) {
           final childParentData =
               child!.parentData! as MultiSliverMultiBoxAdaptorParentData;
-          children.add(child.toDiagnosticsNode(
+          children.add(
+            child.toDiagnosticsNode(
               name:
-                  'child with popup ${popUpList?.debugId} index ${childParentData.index}'));
+                  'child with popup ${popUpList?.debugId} index ${childParentData.index}',
+            ),
+          );
           if (child == list.lastChild) {
             break;
           }
@@ -605,11 +642,13 @@ abstract class MultiRenderSliverMultiBoxAdaptor extends RenderSliver
       if (keepAliveBucket?.isNotEmpty ?? false) {
         final indices = keepAliveBucket!.keys.toList()..sort();
         for (final index in indices) {
-          children.add(keepAliveBucket[index]!.toDiagnosticsNode(
-            name:
-                'child with popup ${popUpList?.debugId} index $index (kept alive but not laid out)',
-            style: DiagnosticsTreeStyle.offstage,
-          ));
+          children.add(
+            keepAliveBucket[index]!.toDiagnosticsNode(
+              name:
+                  'child with popup ${popUpList?.debugId} index $index (kept alive but not laid out)',
+              style: DiagnosticsTreeStyle.offstage,
+            ),
+          );
         }
       }
     }
@@ -638,14 +677,19 @@ class MultiSliverMultiBoxAdaptorParentData extends SliverLogicalParentData
 }
 
 abstract class MultiRenderSliverBoxChildManager {
-  void createChild(_PopUpList? popUpList, int index,
-      {required RenderBox? after});
+  void createChild(
+    _PopUpList? popUpList,
+    int index, {
+    required RenderBox? after,
+  });
   void removeChild(_PopUpList? popUpList, RenderBox child);
-  double estimateMaxScrollOffset(SliverConstraints constraints,
-      {int? firstIndex,
-      int? lastIndex,
-      double? leadingScrollOffset,
-      double? trailingScrollOffset});
+  double estimateMaxScrollOffset(
+    SliverConstraints constraints, {
+    int? firstIndex,
+    int? lastIndex,
+    double? leadingScrollOffset,
+    double? trailingScrollOffset,
+  });
   int get childCount;
   void didAdoptChild(RenderBox child);
   void setDidUnderflow(bool value);

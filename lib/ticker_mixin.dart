@@ -1,6 +1,6 @@
-library ticker_mixin;
+library;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
 
 /// A ticker provider that can be used without necessarily having a [StatefulWidget].
@@ -51,18 +51,19 @@ mixin TickerProviderMixin implements TickerProvider {
   }
 
   void updateTickerMuted(BuildContext context) {
-    final muted = !TickerMode.of(context);
+    final mode = TickerMode.valuesOf(context);
     if (_tickers != null) {
       for (final ticker in _tickers!) {
-        ticker.muted = muted;
+        ticker
+          ..muted = !mode.enabled
+          ..forceFrames = mode.forceFrames;
       }
     }
   }
 }
 
 class _WidgetTicker extends Ticker {
-  _WidgetTicker(TickerCallback onTick, this._creator, {String? debugLabel})
-      : super(onTick, debugLabel: debugLabel);
+  _WidgetTicker(super.onTick, this._creator, {super.debugLabel});
 
   final TickerProviderMixin _creator;
 

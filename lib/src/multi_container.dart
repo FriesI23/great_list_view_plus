@@ -1,19 +1,24 @@
 part of 'core.dart';
 
 mixin MultiContainerRenderObjectMixin<
-    ChildType extends RenderObject,
-    ParentDataType extends MultiContainerParentDataMixin<ChildType, KeyType>,
-    KeyType> on RenderObject {
-  final _data = <KeyType,
-      MultiContainerRenderObjectList<ChildType, ParentDataType, KeyType>>{};
+  ChildType extends RenderObject,
+  ParentDataType extends MultiContainerParentDataMixin<ChildType, KeyType>,
+  KeyType
+>
+    on RenderObject {
+  final _data =
+      <
+        KeyType,
+        MultiContainerRenderObjectList<ChildType, ParentDataType, KeyType>
+      >{};
 
   Iterable<KeyType> get keys => _data.keys;
 
   MultiContainerRenderObjectList<ChildType, ParentDataType, KeyType>
-      _getOrCreateListOf(KeyType key) => _data.putIfAbsent(
-          key,
-          () => MultiContainerRenderObjectList<ChildType, ParentDataType,
-              KeyType>());
+  _getOrCreateListOf(KeyType key) => _data.putIfAbsent(
+    key,
+    () => MultiContainerRenderObjectList<ChildType, ParentDataType, KeyType>(),
+  );
 
   /// Insert child into this render object's child list after the given child.
   ///
@@ -21,8 +26,10 @@ mixin MultiContainerRenderObjectMixin<
   /// and the child becomes the new [firstChild].
   void insert(KeyType key, ChildType child, {ChildType? after}) {
     assert(child != this, 'A RenderObject cannot be inserted into itself.');
-    assert(after != this,
-        'A RenderObject cannot simultaneously be both the parent and the sibling of another RenderObject.');
+    assert(
+      after != this,
+      'A RenderObject cannot simultaneously be both the parent and the sibling of another RenderObject.',
+    );
     assert(child != after, 'A RenderObject cannot be inserted after itself.');
     final data = _getOrCreateListOf(key);
     assert(child != data._firstChild);
@@ -49,7 +56,6 @@ mixin MultiContainerRenderObjectMixin<
     final data = _data[key]!;
     data._removeFromChildList(child);
     dropChild(child);
-    // if (data._childCount == 0) _data.remove(key);
   }
 
   void removeEmptyKeys() {
@@ -92,7 +98,6 @@ mixin MultiContainerRenderObjectMixin<
     final oldData = _data[oldKey]!;
     oldData._removeFromChildList(child);
     _getOrCreateListOf(newKey)._insertIntoChildList(child, after: after);
-    // if (oldData._childCount == 0) _data.remove(oldKey);
     markNeedsLayout();
   }
 
@@ -147,9 +152,9 @@ mixin MultiContainerRenderObjectMixin<
   }
 
   MultiContainerRenderObjectList<ChildType, ParentDataType, KeyType>? listOf(
-          KeyType key,
-          [bool createIfNotExists = false]) =>
-      createIfNotExists ? _getOrCreateListOf(key) : _data[key];
+    KeyType key, [
+    bool createIfNotExists = false,
+  ]) => createIfNotExists ? _getOrCreateListOf(key) : _data[key];
 
   /// The previous child before the given child in the child list.
   ChildType? childBefore(ChildType child) {
@@ -188,9 +193,10 @@ mixin MultiContainerRenderObjectMixin<
 }
 
 class MultiContainerRenderObjectList<
-    ChildType extends RenderObject,
-    ParentDataType extends MultiContainerParentDataMixin<ChildType, KeyType>,
-    KeyType> {
+  ChildType extends RenderObject,
+  ParentDataType extends MultiContainerParentDataMixin<ChildType, KeyType>,
+  KeyType
+> {
   ChildType? _firstChild, _lastChild;
   int _childCount = 0;
 
@@ -312,10 +318,14 @@ mixin MultiContainerParentDataMixin<ChildType extends RenderObject, KeyType>
   /// Clear the sibling pointers.
   @override
   void detach() {
-    assert(previousSibling == null,
-        'Pointers to siblings must be nulled before detaching ParentData.');
-    assert(nextSibling == null,
-        'Pointers to siblings must be nulled before detaching ParentData.');
+    assert(
+      previousSibling == null,
+      'Pointers to siblings must be nulled before detaching ParentData.',
+    );
+    assert(
+      nextSibling == null,
+      'Pointers to siblings must be nulled before detaching ParentData.',
+    );
     super.detach();
   }
 }

@@ -12,8 +12,13 @@ class _SplitResult {
   final _UpdateCallback? updateCallback;
   final void Function()? subListSplitCallback;
 
-  const _SplitResult(this.left, this.right, this.middle,
-      {this.updateCallback, this.subListSplitCallback});
+  const _SplitResult(
+    this.left,
+    this.right,
+    this.middle, {
+    this.updateCallback,
+    this.subListSplitCallback,
+  });
 
   @override
   String toString() => 'SplitResult(left=$left, middle=$middle, right=$right)';
@@ -147,8 +152,12 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   /// The split middle interval is replaced by the ones passed as the input parameter [middle]. An update callback
   /// [middleUpdateCallback] can also be passed for the middle interval.
   /// The new intervals are not necessarily of the same type.
-  _SplitResult splitWith(int leading, int trailing, Iterable<_Interval> middle,
-      [_UpdateCallback? middleUpdateCallback]) {
+  _SplitResult splitWith(
+    int leading,
+    int trailing,
+    Iterable<_Interval> middle, [
+    _UpdateCallback? middleUpdateCallback,
+  ]) {
     return _split(leading, trailing, middle, false, middleUpdateCallback);
   }
 
@@ -157,9 +166,12 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   _MergeResult? mergeWith(_Interval leftInterval) => null;
 
   /// This method builds the widget related to a specific item [index] within its [buildCount].
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-          int index, bool measureOnly) =>
-      throw UnimplementedError('This interval is not meant to be built');
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) => throw UnimplementedError('This interval is not meant to be built');
 
   /// The interval name.
   @protected
@@ -195,37 +207,49 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   }
 
   Iterable<MapEntry<String?, Object?>> get attributes => [
-        if (kDebugMode) MapEntry('id', _debugId),
-        ..._state,
-        if (_disposed) MapEntry(null, 'DISPOSED'),
-        MapEntry('bc', buildCount),
-        MapEntry('ic', itemCount),
-        MapEntry('avc', averageCount),
-      ];
+    if (kDebugMode) MapEntry('id', _debugId),
+    ..._state,
+    if (_disposed) MapEntry(null, 'DISPOSED'),
+    MapEntry('bc', buildCount),
+    MapEntry('ic', itemCount),
+    MapEntry('avc', averageCount),
+  ];
 
   @protected
   @override
   String toString() =>
       '$name (${attributes.map((e) => e.key != null ? '${e.key}: ${e.value}' : '${e.value}').join(', ')})';
 
-  _SplitResult _split(int leading, int trailing, Iterable<_Interval>? middle,
-      bool createMiddle, _UpdateCallback? middleUpdateCallback) {
+  _SplitResult _split(
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) {
     assert(_debugAssertNotDisposed());
-    assert((createMiddle && middle == null && middleUpdateCallback == null) ||
-        !createMiddle);
+    assert(
+      (createMiddle && middle == null && middleUpdateCallback == null) ||
+          !createMiddle,
+    );
     assert(leading >= 0 && trailing >= 0);
     assert(leading + trailing <= itemCount);
     return _performSplit(
-        leading, trailing, middle, createMiddle, middleUpdateCallback);
+      leading,
+      trailing,
+      middle,
+      createMiddle,
+      middleUpdateCallback,
+    );
   }
 
   _SplitResult _performSplit(
-          int leading,
-          int trailing,
-          Iterable<_Interval>? middle,
-          bool createMiddle,
-          _UpdateCallback? middleUpdateCallback) =>
-      throw UnimplementedError('This interval is not meant to be split');
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) => throw UnimplementedError('This interval is not meant to be split');
 
   bool _debugAssertAttachedToList() {
     assert(() {
@@ -268,10 +292,16 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   //
 
   /// It calls the builder passed by the user to build the items of the underlying list.
-  Widget _inListBuilder(_ListIntervalInterface interface, int listIndexOffset,
-      AnimatedWidgetBuilderData data) {
-    return interface.wrapWidget(interface.delegate.builder,
-        listIndexOffset + (list!.holder?.parentItemOffset ?? 0), data);
+  Widget _inListBuilder(
+    _ListIntervalInterface interface,
+    int listIndexOffset,
+    AnimatedWidgetBuilderData data,
+  ) {
+    return interface.wrapWidget(
+      interface.delegate.builder,
+      listIndexOffset + (list!.holder?.parentItemOffset ?? 0),
+      data,
+    );
   }
 
   /// It builds a fixed size [SizedBox].
@@ -279,7 +309,9 @@ abstract class _Interval extends _LinkedNode<_Interval> {
     assert(_debugAssertAttachedToList());
     final horizontal = interface.isHorizontal;
     Widget widget = SizedBox(
-        width: horizontal ? size : null, height: !horizontal ? size : null);
+      width: horizontal ? size : null,
+      height: !horizontal ? size : null,
+    );
     if (kDebugMode) {
       widget = _DebugBox(widget, this);
     }
@@ -287,8 +319,12 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   }
 
   /// It builds an animated [SizedBox].
-  Widget _buildAnimatedSizedBox(_ListIntervalInterface interface,
-      _IntervalAnimation animation, Tween<double> tween, bool measureOnly) {
+  Widget _buildAnimatedSizedBox(
+    _ListIntervalInterface interface,
+    _IntervalAnimation animation,
+    Tween<double> tween,
+    bool measureOnly,
+  ) {
     assert(_debugAssertAttachedToList());
     if (measureOnly) {
       return _buildSizedBox(interface, tween.evaluate(animation.animation));
@@ -296,14 +332,15 @@ abstract class _Interval extends _LinkedNode<_Interval> {
     final tweenAnimation = tween.animate(animation.animation);
     final horizontal = interface.isHorizontal;
     Widget widget = AnimatedBuilder(
-        animation: tweenAnimation,
-        builder: (context, child) {
-          final value = tweenAnimation.value;
-          return SizedBox(
-            width: horizontal ? value : null,
-            height: !horizontal ? value : null,
-          );
-        });
+      animation: tweenAnimation,
+      builder: (context, child) {
+        final value = tweenAnimation.value;
+        return SizedBox(
+          width: horizontal ? value : null,
+          height: !horizontal ? value : null,
+        );
+      },
+    );
     if (kDebugMode) {
       widget = _DebugBox(widget, this);
     }
@@ -311,15 +348,15 @@ abstract class _Interval extends _LinkedNode<_Interval> {
   }
 
   AnimatedWidgetBuilderData _builderData(
-          Animation<double> animation, bool measureOnly) =>
-      AnimatedWidgetBuilderData(
-        animation,
-        measuring: measureOnly,
-        moving:
-            list!.popUpList != null && list!.popUpList is! _ReorderPopUpList,
-        dragging: list!.popUpList is _ReorderPopUpList,
-        slot: list!.manager.reorderLayoutData?.slot,
-      );
+    Animation<double> animation,
+    bool measureOnly,
+  ) => AnimatedWidgetBuilderData(
+    animation,
+    measuring: measureOnly,
+    moving: list!.popUpList != null && list!.popUpList is! _ReorderPopUpList,
+    dragging: list!.popUpList is _ReorderPopUpList,
+    slot: list!.manager.reorderLayoutData?.slot,
+  );
 }
 
 /// Interval with animation feature.
@@ -349,8 +386,9 @@ mixin _AnimatedIntervalMixin implements _Interval {
     }
   }
 
-  List<MapEntry<String?, Object>> get animationAttributes =>
-      [MapEntry('t', animation.time)];
+  List<MapEntry<String?, Object>> get animationAttributes => [
+    MapEntry('t', animation.time),
+  ];
 }
 
 /// This interface marks an interval to be able to adjust the count of the covered items of the
@@ -420,7 +458,7 @@ abstract class _SubListHolderInterval extends _SubListInterval {
 abstract class _OffListAnimatedInterval extends _Interval
     with _AnimatedIntervalMixin {
   _OffListAnimatedInterval(this.animation, this.builder, this.buildCount)
-      : assert(buildCount > 0) {
+    : assert(buildCount > 0) {
     animation.attachTo(this);
   }
 
@@ -436,11 +474,18 @@ abstract class _OffListAnimatedInterval extends _Interval
   double get averageCount => buildCount.toDouble();
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     assert(_debugAssertNotDisposed());
     return builder.call(
-        context, index, _builderData(animation.animation, measureOnly));
+      context,
+      index,
+      _builderData(animation.animation, measureOnly),
+    );
   }
 
   @override
@@ -462,11 +507,15 @@ abstract class _OffListAnimatedInterval extends _Interval
 abstract class _AnimatedSpaceInterval extends _Interval
     with _AnimatedIntervalMixin
     implements _SpaceInterval {
-  _AnimatedSpaceInterval(this.animation, this.fromSize, this.toSize,
-      this.fromLength, this.toLength)
-      : lastSize = fromSize.value,
-        assert(fromSize.value >= 0 && toSize.value >= 0),
-        assert(fromLength >= 0 && toLength >= 0) {
+  _AnimatedSpaceInterval(
+    this.animation,
+    this.fromSize,
+    this.toSize,
+    this.fromLength,
+    this.toLength,
+  ) : lastSize = fromSize.value,
+      assert(fromSize.value >= 0 && toSize.value >= 0),
+      assert(fromLength >= 0 && toLength >= 0) {
     animation.attachTo(this);
     animation.animation.addListener(onTick);
   }
@@ -510,7 +559,8 @@ abstract class _AnimatedSpaceInterval extends _Interval
   }
 
   double futureSize(double deltaTimeInSec) {
-    final t = ((animation.time * animation.durationInSec) + deltaTimeInSec) /
+    final t =
+        ((animation.time * animation.durationInSec) + deltaTimeInSec) /
         animation.durationInSec;
     return fromSize.value +
         animation.futureValue(t) * (toSize.value - fromSize.value);
@@ -531,10 +581,18 @@ abstract class _AnimatedSpaceInterval extends _Interval
   }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
-    return _buildAnimatedSizedBox(interface, animation,
-        Tween<double>(begin: fromSize.value, end: toSize.value), measureOnly);
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
+    return _buildAnimatedSizedBox(
+      interface,
+      animation,
+      Tween<double>(begin: fromSize.value, end: toSize.value),
+      measureOnly,
+    );
   }
 
   @override
@@ -568,7 +626,7 @@ class _NormalInterval extends _Interval
   }
 
   _NormalInterval.completed(int itemCount)
-      : this(const _CompletedAnimation(), itemCount);
+    : this(const _CompletedAnimation(), itemCount);
 
   @override
   final _IntervalAnimation animation;
@@ -585,7 +643,10 @@ class _NormalInterval extends _Interval
 
   @override
   _NormalInterval createSplitInterval(
-      int buildCount, int itemCount, int offset) {
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) {
     assert(buildCount == itemCount);
     return _NormalInterval(animation, itemCount);
   }
@@ -595,19 +656,29 @@ class _NormalInterval extends _Interval
     assert(_debugAssertNotDisposed());
     if (leftInterval is _NormalInterval &&
         areBothAnimationsCompleted(leftInterval)) {
-      return _MergeResult(_NormalInterval(
-              const _CompletedAnimation(), itemCount + leftInterval.itemCount)
-          .iterable());
+      return _MergeResult(
+        _NormalInterval(
+          const _CompletedAnimation(),
+          itemCount + leftInterval.itemCount,
+        ).iterable(),
+      );
     }
     return null;
   }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     assert(_debugAssertAttachedToList());
-    return _inListBuilder(interface, itemOffset + index,
-        _builderData(animation.animation, measureOnly));
+    return _inListBuilder(
+      interface,
+      itemOffset + index,
+      _builderData(animation.animation, measureOnly),
+    );
   }
 
   @override
@@ -633,12 +704,11 @@ class _ReadyToRemovalInterval extends _OffListAnimatedInterval
     with _SplitMixin
     implements _AdjustableInterval {
   _ReadyToRemovalInterval(
-      this.animation, _IntervalBuilder builder, int buildCount, this.itemCount)
-      : assert(buildCount > 0 && itemCount >= 0),
-        super(animation, builder, buildCount);
-
-  @override
-  final _IntervalAnimation animation;
+    super.animation,
+    super.builder,
+    super.buildCount,
+    this.itemCount,
+  ) : assert(buildCount > 0 && itemCount >= 0);
 
   @override
   final int itemCount;
@@ -649,26 +719,38 @@ class _ReadyToRemovalInterval extends _OffListAnimatedInterval
 
   @override
   _ReadyToRemovalInterval createSplitInterval(
-          int buildCount, int itemCount, int offset) =>
-      _ReadyToRemovalInterval(animation,
-          offsetIntervalBuilder(builder, offset)!, buildCount, itemCount);
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) => _ReadyToRemovalInterval(
+    animation,
+    offsetIntervalBuilder(builder, offset)!,
+    buildCount,
+    itemCount,
+  );
 
   @override
   _MergeResult? mergeWith(_Interval leftInterval) {
     assert(_debugAssertNotDisposed());
     if (leftInterval is _ReadyToRemovalInterval &&
         areBothAnimationsCompleted(leftInterval)) {
-      return _MergeResult(_ReadyToRemovalInterval(
-              const _CompletedAnimation(),
-              joinBuilders(
-                  leftInterval.builder, builder, leftInterval.buildCount),
-              leftInterval.buildCount + buildCount,
-              leftInterval.itemCount + itemCount)
-          .iterable());
+      return _MergeResult(
+        _ReadyToRemovalInterval(
+          const _CompletedAnimation(),
+          joinBuilders(leftInterval.builder, builder, leftInterval.buildCount),
+          leftInterval.buildCount + buildCount,
+          leftInterval.itemCount + itemCount,
+        ).iterable(),
+      );
     } else if (leftInterval is _ReadyToResizingSpawnedInterval) {
-      return _MergeResult(_ReadyToRemovalInterval(animation, builder,
-              buildCount, leftInterval.itemCount + itemCount)
-          .iterable());
+      return _MergeResult(
+        _ReadyToRemovalInterval(
+          animation,
+          builder,
+          buildCount,
+          leftInterval.itemCount + itemCount,
+        ).iterable(),
+      );
     }
     return null;
   }
@@ -677,7 +759,11 @@ class _ReadyToRemovalInterval extends _OffListAnimatedInterval
   _ReadyToRemovalInterval clone(int newItemCount) {
     assert(_debugAssertNotDisposed());
     return _ReadyToRemovalInterval(
-        animation, builder, buildCount, newItemCount);
+      animation,
+      builder,
+      buildCount,
+      newItemCount,
+    );
   }
 
   @override
@@ -696,10 +782,12 @@ class _ReadyToRemovalInterval extends _OffListAnimatedInterval
 class _RemovalInterval extends _OffListAnimatedInterval
     with _SplitMixin
     implements _AdjustableInterval {
-  _RemovalInterval(_IntervalAnimation animation, _IntervalBuilder builder,
-      int buildCount, this.itemCount)
-      : assert(buildCount > 0 && itemCount >= 0),
-        super(animation, builder, buildCount);
+  _RemovalInterval(
+    super.animation,
+    super.builder,
+    super.buildCount,
+    this.itemCount,
+  ) : assert(buildCount > 0 && itemCount >= 0);
 
   @override
   final int itemCount;
@@ -710,9 +798,15 @@ class _RemovalInterval extends _OffListAnimatedInterval
 
   @override
   _RemovalInterval createSplitInterval(
-          int buildCount, int itemCount, int offset) =>
-      _RemovalInterval(animation, offsetIntervalBuilder(builder, offset)!,
-          buildCount, itemCount);
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) => _RemovalInterval(
+    animation,
+    offsetIntervalBuilder(builder, offset)!,
+    buildCount,
+    itemCount,
+  );
 
   @override
   _RemovalInterval clone(int newItemCount) {
@@ -731,9 +825,13 @@ class _RemovalInterval extends _OffListAnimatedInterval
 class _ResizingInterval extends _AnimatedSpaceInterval
     with _SplitMixin, _ResizingSplitMixin
     implements _ResizableInterval {
-  _ResizingInterval(_ControlledAnimation animation, _Measure fromSize,
-      _Measure toSize, double fromLength, int toLength)
-      : super(animation, fromSize, toSize, fromLength, toLength);
+  _ResizingInterval(
+    super.animation,
+    super.fromSize,
+    super.toSize,
+    super.fromLength,
+    super.toLength,
+  );
 
   @override
   String get name => 'Rz';
@@ -764,12 +862,19 @@ class _ReadyToInsertionInterval extends _Interval
     if (leftInterval is _ReadyToInsertionInterval) {
       return _MergeResult(
         _ReadyToInsertionInterval(
-                leftInterval.size + size, leftInterval.itemCount + itemCount)
-            .iterable(),
+          leftInterval.size + size,
+          leftInterval.itemCount + itemCount,
+        ).iterable(),
         (list, index, oldBuildCount, newBuildCount) {
-          list.addUpdate(index, oldBuildCount, newBuildCount,
-              flags: const _UpdateFlags(_UpdateFlags.CLEAR_LAYOUT_OFFSET |
-                  _UpdateFlags.KEEP_FIRST_LAYOUT_OFFSET));
+          list.addUpdate(
+            index,
+            oldBuildCount,
+            newBuildCount,
+            flags: const _UpdateFlags(
+              _UpdateFlags.clearLayoutOffset |
+                  _UpdateFlags.keepFirstLayoutOffset,
+            ),
+          );
         },
       );
     }
@@ -777,8 +882,12 @@ class _ReadyToInsertionInterval extends _Interval
   }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     return _buildSizedBox(interface, size.value);
   }
 
@@ -802,9 +911,11 @@ class _ReadyToInsertionInterval extends _Interval
 class _ReadyToChangingInterval extends _OffListAnimatedInterval
     with _SplitMixin {
   _ReadyToChangingInterval(
-      _IntervalAnimation animation, _IntervalBuilder builder, this.itemCount)
-      : assert(itemCount > 0),
-        super(animation, builder, itemCount);
+    _IntervalAnimation animation,
+    _IntervalBuilder builder,
+    this.itemCount,
+  ) : assert(itemCount > 0),
+      super(animation, builder, itemCount);
 
   @override
   final int itemCount;
@@ -815,10 +926,16 @@ class _ReadyToChangingInterval extends _OffListAnimatedInterval
 
   @override
   _ReadyToChangingInterval createSplitInterval(
-      int buildCount, int itemCount, int offset) {
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) {
     assert(buildCount == itemCount);
     return _ReadyToChangingInterval(
-        animation, offsetIntervalBuilder(builder, offset)!, itemCount);
+      animation,
+      offsetIntervalBuilder(builder, offset)!,
+      itemCount,
+    );
   }
 
   @override
@@ -826,11 +943,13 @@ class _ReadyToChangingInterval extends _OffListAnimatedInterval
     assert(_debugAssertNotDisposed());
     if (leftInterval is _ReadyToChangingInterval &&
         areBothAnimationsCompleted(leftInterval)) {
-      return _MergeResult(_ReadyToChangingInterval(
-        const _CompletedAnimation(),
-        joinBuilders(leftInterval.builder, builder, leftInterval.buildCount),
-        leftInterval.itemCount + itemCount,
-      ).iterable());
+      return _MergeResult(
+        _ReadyToChangingInterval(
+          const _CompletedAnimation(),
+          joinBuilders(leftInterval.builder, builder, leftInterval.buildCount),
+          leftInterval.itemCount + itemCount,
+        ).iterable(),
+      );
     }
     return null;
   }
@@ -887,7 +1006,9 @@ abstract class _MeasureTask {
   }
 
   FutureOr<_Measure> performMeasure(
-      _ListIntervalInterface interface, _Interval interval);
+    _ListIntervalInterface interface,
+    _Interval interval,
+  );
 
   void cancel() {
     cancelled?.value = true;
@@ -901,17 +1022,20 @@ class _MeasureOffListItemsTask extends _MeasureTask {
   _MeasureOffListItemsTask();
 
   @override
-  FutureOr<_Measure> performMeasure(_ListIntervalInterface interface,
-      covariant _OffListAnimatedInterval interval) {
+  FutureOr<_Measure> performMeasure(
+    _ListIntervalInterface interface,
+    covariant _OffListAnimatedInterval interval,
+  ) {
     assert(interval._debugAssertAttachedToList());
     final r = interface.measureItems(
-        cancelled!,
-        interval.buildCount,
-        (context, index) => interval.builder.call(
-            context,
-            index,
-            AnimatedWidgetBuilderData(kAlwaysDismissedAnimation,
-                measuring: true)));
+      cancelled!,
+      interval.buildCount,
+      (context, index) => interval.builder.call(
+        context,
+        index,
+        AnimatedWidgetBuilderData(kAlwaysDismissedAnimation, measuring: true),
+      ),
+    );
     return r;
   }
 }
@@ -921,13 +1045,20 @@ class _MeasureOffListItemsTask extends _MeasureTask {
 class _MeasureInListItemsTask extends _MeasureTask {
   @override
   FutureOr<_Measure> performMeasure(
-      _ListIntervalInterface interface, _Interval interval) {
+    _ListIntervalInterface interface,
+    _Interval interval,
+  ) {
     assert(interval._debugAssertAttachedToList());
     if (interval.itemCount == 0) return _Measure.zero;
-    final r = interface.measureItems(cancelled!, interval.itemCount,
-        (context, index) {
-      return interval._inListBuilder(interface, index + interval.itemOffset,
-          AnimatedWidgetBuilderData(kAlwaysCompleteAnimation, measuring: true));
+    final r = interface.measureItems(cancelled!, interval.itemCount, (
+      context,
+      index,
+    ) {
+      return interval._inListBuilder(
+        interface,
+        index + interval.itemOffset,
+        AnimatedWidgetBuilderData(kAlwaysCompleteAnimation, measuring: true),
+      );
     });
     return r;
   }
@@ -961,18 +1092,14 @@ class _ReadyToResizingFromRemovalInterval extends _OffListAnimatedInterval
     with _SplitMixin
     implements _ReadyToResizing {
   _ReadyToResizingFromRemovalInterval(
-      this.builder, this.buildCount, this.itemCount)
-      : assert(buildCount > 0 && itemCount >= 0),
-        super(const _DismissedAnimation(), builder, buildCount);
-
-  @override
-  final int buildCount;
+    _IntervalBuilder builder,
+    int buildCount,
+    this.itemCount,
+  ) : assert(buildCount > 0 && itemCount >= 0),
+      super(const _DismissedAnimation(), builder, buildCount);
 
   @override
   final int itemCount;
-
-  @override
-  final _IntervalBuilder builder;
 
   final _MeasureOffListItemsTask fromSizeTask = _MeasureOffListItemsTask();
 
@@ -999,9 +1126,14 @@ class _ReadyToResizingFromRemovalInterval extends _OffListAnimatedInterval
 
   @override
   _ReadyToResizingFromRemovalInterval createSplitInterval(
-          int buildCount, int itemCount, int offset) =>
-      _ReadyToResizingFromRemovalInterval(
-          offsetIntervalBuilder(builder, offset)!, buildCount, itemCount);
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) => _ReadyToResizingFromRemovalInterval(
+    offsetIntervalBuilder(builder, offset)!,
+    buildCount,
+    itemCount,
+  );
 
   @override
   FutureOr<bool> startMeasuring(_ListIntervalInterface interface) {
@@ -1023,16 +1155,23 @@ class _ReadyToResizingFromRemovalInterval extends _OffListAnimatedInterval
   _ReadyToResizingFromRemovalInterval clone(int newItemCount) {
     assert(_debugAssertNotDisposed());
     return _ReadyToResizingFromRemovalInterval(
-        builder, buildCount, newItemCount);
+      builder,
+      buildCount,
+      newItemCount,
+    );
   }
 
   @override
   _MergeResult? mergeWith(_Interval leftInterval) {
     assert(_debugAssertNotDisposed());
     if (leftInterval is _ReadyToResizingSpawnedInterval) {
-      return _MergeResult(_ReadyToResizingFromRemovalInterval(
-              builder, buildCount, itemCount + leftInterval.itemCount)
-          .iterable());
+      return _MergeResult(
+        _ReadyToResizingFromRemovalInterval(
+          builder,
+          buildCount,
+          itemCount + leftInterval.itemCount,
+        ).iterable(),
+      );
     }
     return null;
   }
@@ -1095,8 +1234,10 @@ class _ReadyToResizingSpawnedInterval extends _Interval
 
   @override
   _ReadyToResizingSpawnedInterval createSplitInterval(
-          int buildCount, int itemCount, int offset) =>
-      _ReadyToResizingSpawnedInterval(itemCount);
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) => _ReadyToResizingSpawnedInterval(itemCount);
 
   @override
   _ReadyToResizingSpawnedInterval clone(int newItemCount) {
@@ -1116,9 +1257,7 @@ class _ReadyToResizingSpawnedInterval extends _Interval
 
   @override
   Iterable<MapEntry<String?, Object?>> get attributes =>
-      super.attributes.followedBy([
-        MapEntry('ts', toSizeTask.measure),
-      ]);
+      super.attributes.followedBy([MapEntry('ts', toSizeTask.measure)]);
 
   @override
   String get name => '->Rz';
@@ -1132,7 +1271,7 @@ class _ReadyToNewResizingInterval extends _Interval
     with _SplitMixin, _ResizingSplitMixin
     implements _ReadyToResizing, _SpaceInterval {
   _ReadyToNewResizingInterval(this.itemCount, this.fromSize, this.fromLength)
-      : assert(itemCount >= 0 && fromSize.value >= 0 && fromLength >= 0);
+    : assert(itemCount >= 0 && fromSize.value >= 0 && fromLength >= 0);
 
   final _MeasureInListItemsTask toSizeTask = _MeasureInListItemsTask();
 
@@ -1174,8 +1313,12 @@ class _ReadyToNewResizingInterval extends _Interval
   }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     return _buildSizedBox(interface, fromSize.value);
   }
 
@@ -1204,7 +1347,7 @@ class _ReadyToNewResizingInterval extends _Interval
 /// It marks an interval, linked to a sub list of which it is holder, to have and be linked to a [_DropInterval].
 ///
 /// Classes [_ReadyToMoveInterval] and [_ReadyToPopupMoveInterval] implement this.
-abstract class _WithDropInterval implements _SubListHolderInterval {
+abstract mixin class _WithDropInterval implements _SubListHolderInterval {
   _DropInterval get dropInterval;
 
   double futureDeltaSize(double deltaTimeInSec) {
@@ -1217,13 +1360,14 @@ abstract class _WithDropInterval implements _SubListHolderInterval {
     return v;
   }
 
-  _SplitResult dropSplit(int leading, int trailing,
-      [_UpdateCallback? middleUpdateCallback]) {
+  _SplitResult dropSplit(
+    int leading,
+    int trailing, [
+    _UpdateCallback? middleUpdateCallback,
+  ]) {
     assert(_debugAssertNotDisposed());
-    // assert(middle == null || !createMiddle);
     assert(leading >= 0 && trailing >= 0);
     assert(leading + trailing <= subList.itemCount);
-    // assert(!createMiddle || middle == null);
     return _performSplit(leading, trailing, null, true, middleUpdateCallback);
   }
 }
@@ -1233,7 +1377,7 @@ abstract class _WithDropInterval implements _SubListHolderInterval {
 /// identified by the linked sub list, that are moved to the new position corresponding to the [itemOffset]
 /// of this interval.
 class _DropInterval extends _Interval implements _SubListInterval {
-  _DropInterval(int debugId, this.withDropInterval) : super.id(debugId);
+  _DropInterval(super.debugId, this.withDropInterval) : super.id();
 
   final _WithDropInterval withDropInterval;
 
@@ -1325,8 +1469,12 @@ class _ReadyToMoveInterval extends _Interval with _WithDropInterval {
   }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     assert(_debugAssertAttachedToList());
     return subList.build(context, index, measureOnly);
   }
@@ -1338,11 +1486,12 @@ class _ReadyToMoveInterval extends _Interval with _WithDropInterval {
 
   @override
   _SplitResult _performSplit(
-      int leading,
-      int trailing,
-      Iterable<_Interval>? middle,
-      bool createMiddle,
-      _UpdateCallback? middleUpdateCallback) {
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) {
     assert(createMiddle);
     final middleItemCount = subList.itemCount - leading - trailing;
     final leftInterval = _createSplitInterval(leading);
@@ -1353,8 +1502,13 @@ class _ReadyToMoveInterval extends _Interval with _WithDropInterval {
       rightInterval?.iterable(),
       middleInterval?.iterable(),
       subListSplitCallback: () {
-        subList.split(leading, trailing, leftInterval?.subList,
-            middleInterval?.subList, rightInterval?.subList);
+        subList.split(
+          leading,
+          trailing,
+          leftInterval?.subList,
+          middleInterval?.subList,
+          rightInterval?.subList,
+        );
         invalidate();
         dropInterval.invalidate();
       },
@@ -1364,9 +1518,7 @@ class _ReadyToMoveInterval extends _Interval with _WithDropInterval {
 
   @override
   Iterable<MapEntry<String?, Object?>> get attributes =>
-      super.attributes.followedBy([
-        MapEntry('sl', subList),
-      ]);
+      super.attributes.followedBy([MapEntry('sl', subList)]);
 
   @override
   String get name => '->Mv';
@@ -1383,7 +1535,11 @@ class _ReadyToPopupMoveInterval extends _Interval
     with _WithDropInterval
     implements _SpaceInterval, _PopUpInterval {
   _ReadyToPopupMoveInterval(
-      this.subList, this.popUpList, this.averageCount, this.currentSize) {
+    this.subList,
+    this.popUpList,
+    this.averageCount,
+    this.currentSize,
+  ) {
     subList.holder = this;
     subList.popUpList = popUpList;
     popUpList.updateScrollOffset = null;
@@ -1432,25 +1588,25 @@ class _ReadyToPopupMoveInterval extends _Interval
   }
 
   // TODO: implement the mergeWith method
-  // @override
-  // MergeResult? mergeWith(Interval leftInterval) {
-  //   assert(_debugAssertNotDisposed());
-  //   return null;
-  // }
 
   @override
-  Widget buildWidget(_ListIntervalInterface interface, BuildContext context,
-      int index, bool measureOnly) {
+  Widget buildWidget(
+    _ListIntervalInterface interface,
+    BuildContext context,
+    int index,
+    bool measureOnly,
+  ) {
     return _buildSizedBox(interface, currentSize);
   }
 
   @override
   _SplitResult _performSplit(
-      int leading,
-      int trailing,
-      Iterable<_Interval>? middle,
-      bool createMiddle,
-      _UpdateCallback? middleUpdateCallback) {
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) {
     assert(createMiddle);
     final itemCount = subList.itemCount;
     final currentLength = averageCount;
@@ -1460,18 +1616,30 @@ class _ReadyToPopupMoveInterval extends _Interval
     _ReadyToPopupMoveInterval? leftInterval, middleInterval, rightInterval;
     if (trailing > 0) {
       var fr = trailing / itemCount;
-      rightInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fr, currentSize * fr);
+      rightInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fr,
+        currentSize * fr,
+      );
     }
     if (createMiddle && middleItemCount > 0) {
       var fm = middleItemCount / itemCount;
-      middleInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fm, currentSize * fm);
+      middleInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fm,
+        currentSize * fm,
+      );
     }
     if (leading > 0) {
       var fl = leading / itemCount;
-      leftInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fl, currentSize * fl);
+      leftInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fl,
+        currentSize * fl,
+      );
     }
 
     return _SplitResult(
@@ -1479,8 +1647,13 @@ class _ReadyToPopupMoveInterval extends _Interval
       rightInterval?.iterable(),
       middleInterval?.iterable(),
       subListSplitCallback: () {
-        subList.split(leading, trailing, leftInterval?.subList,
-            middleInterval?.subList, rightInterval?.subList);
+        subList.split(
+          leading,
+          trailing,
+          leftInterval?.subList,
+          middleInterval?.subList,
+          rightInterval?.subList,
+        );
 
         final subListIndex = popUpList.subLists.indexOf(subList);
         assert(subListIndex >= 0);
@@ -1527,13 +1700,13 @@ class _ReadyToPopupMoveInterval extends _Interval
 class _MovingInterval extends _AnimatedSpaceInterval
     implements _PopUpInterval, _SubListHolderInterval {
   _MovingInterval(
-      _ControlledAnimation animation,
-      this._moveAnimation,
-      _IntervalList subList,
-      this.popUpList,
-      _Measure toSize,
-      this.startingScrollOffset)
-      : super(animation, _Measure.zero, toSize, 0.0, subList.itemCount) {
+    _ControlledAnimation animation,
+    this._moveAnimation,
+    _IntervalList subList,
+    this.popUpList,
+    _Measure toSize,
+    this.startingScrollOffset,
+  ) : super(animation, _Measure.zero, toSize, 0.0, subList.itemCount) {
     assert(popUpList.subLists.isEmpty);
     popUpList.subLists.add(subList);
     popUpList.lastBuildCount = subList.buildCount;
@@ -1547,15 +1720,18 @@ class _MovingInterval extends _AnimatedSpaceInterval
     _moveAnimation.animation.addListener(onMoveTick);
   }
 
-  _MovingInterval.from(
-    _MovingInterval i,
-    double newToOffset,
-  )   : _moveAnimation = i._moveAnimation,
-        popUpList = i.popUpList,
-        startingScrollOffset = i.popUpList.currentScrollOffset!,
-        _toOffset = newToOffset,
-        super(i.animation, _Measure(i.currentSize), i.toSize, i.averageCount,
-            i.subList.itemCount) {
+  _MovingInterval.from(_MovingInterval i, double newToOffset)
+    : _moveAnimation = i._moveAnimation,
+      popUpList = i.popUpList,
+      startingScrollOffset = i.popUpList.currentScrollOffset!,
+      _toOffset = newToOffset,
+      super(
+        i.animation,
+        _Measure(i.currentSize),
+        i.toSize,
+        i.averageCount,
+        i.subList.itemCount,
+      ) {
     _moveAnimation.animation.removeListener(i.onMoveTick);
     _moveAnimation.reset();
     _moveAnimation.attachTo(this);
@@ -1592,8 +1768,8 @@ class _MovingInterval extends _AnimatedSpaceInterval
 
   double get elapsedTimeInSec =>
       (animation.durationInSec > _moveAnimation.durationInSec)
-          ? animation.timeInSec
-          : _moveAnimation.timeInSec;
+      ? animation.timeInSec
+      : _moveAnimation.timeInSec;
 
   set toOffset(double? offset) {
     assert(offset != null);
@@ -1614,27 +1790,23 @@ class _MovingInterval extends _AnimatedSpaceInterval
   void startAnimation() {
     super.startAnimation();
     _moveAnimation.start();
-    // if (!(fromSize.value - toSize.value).isAcceptableResizeAmount;) {
-    //   _moveAnimation.complete();
-    // }
   }
 
   void updateToOffset(UpdateToOffsetCallback callback) {
     final buildIndex = buildOffset;
     final remainingTime = durationInSec - elapsedTimeInSec;
-    final newToOffset =
-        callback.call(buildIndex, list!.buildCount, remainingTime);
+    final newToOffset = callback.call(
+      buildIndex,
+      list!.buildCount,
+      remainingTime,
+    );
     if (_toOffset == null) {
       toOffset = newToOffset;
     } else {
       if ((_toOffset! - newToOffset).isAcceptableResizeAmount) {
-        // print("##### CHANGED $this [$_toOffset -> $newToOffset] ");
         callback.call(buildIndex, list!.buildCount, remainingTime);
         final n = _MovingInterval.from(this, newToOffset);
-        list!.replace(
-          iterable(),
-          n.iterable(),
-        );
+        list!.replace(iterable(), n.iterable());
       }
     }
   }
@@ -1642,11 +1814,11 @@ class _MovingInterval extends _AnimatedSpaceInterval
   void onMoveTick() {
     if (_disposed) return;
     if (_toOffset != null) {
-      // final oldOffset = popUpList.currentScrollOffset!;
-      final newOffset = (startingScrollOffset +
-              _moveAnimation.value * (_toOffset! - startingScrollOffset))
-          .ceil() // it needs, otherwise with addRepaintBoundary you have annoying flickering!
-          .toDouble();
+      final newOffset =
+          (startingScrollOffset +
+                  _moveAnimation.value * (_toOffset! - startingScrollOffset))
+              .ceil() // it needs, otherwise with addRepaintBoundary you have annoying flickering!
+              .toDouble();
 
       popUpList.currentScrollOffset = newOffset;
     }
@@ -1655,11 +1827,12 @@ class _MovingInterval extends _AnimatedSpaceInterval
 
   @override
   _SplitResult _performSplit(
-      int leading,
-      int trailing,
-      Iterable<_Interval>? middle,
-      bool createMiddle,
-      _UpdateCallback? middleUpdateCallback) {
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) {
     assert(createMiddle || (middle?.buildCount ?? 0) == 0);
     final itemCount = this.itemCount;
     final currentLength = averageCount;
@@ -1669,37 +1842,58 @@ class _MovingInterval extends _AnimatedSpaceInterval
     _ReadyToPopupMoveInterval? leftInterval, middleInterval, rightInterval;
     if (leading > 0) {
       var fl = leading / itemCount;
-      leftInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fl, currentSize * fl);
+      leftInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fl,
+        currentSize * fl,
+      );
     }
     if (createMiddle && middleItemCount > 0) {
       var fm = middleItemCount / itemCount;
-      middleInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fm, currentSize * fm);
+      middleInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fm,
+        currentSize * fm,
+      );
     }
     if (trailing > 0) {
       var fr = trailing / itemCount;
-      rightInterval = _ReadyToPopupMoveInterval(_IntervalList(list!.manager),
-          popUpList, currentLength * fr, currentSize * fr);
+      rightInterval = _ReadyToPopupMoveInterval(
+        _IntervalList(list!.manager),
+        popUpList,
+        currentLength * fr,
+        currentSize * fr,
+      );
     }
 
     return _SplitResult(
       () sync* {
-        if (leftInterval != null) {
-          yield leftInterval;
-          yield leftInterval.dropInterval;
+        // Captured variables are not promoted across a yield in Dart 3.13.
+        final interval = leftInterval;
+        if (interval != null) {
+          yield interval;
+          yield interval.dropInterval;
         }
       }(),
       () sync* {
-        if (rightInterval != null) {
-          yield rightInterval;
-          yield rightInterval.dropInterval;
+        // Captured variables are not promoted across a yield in Dart 3.13.
+        final interval = rightInterval;
+        if (interval != null) {
+          yield interval;
+          yield interval.dropInterval;
         }
       }(),
       createMiddle ? middleInterval?.iterable() : middle,
       subListSplitCallback: () {
-        subList.split(leading, trailing, leftInterval?.subList,
-            middleInterval?.subList, rightInterval?.subList);
+        subList.split(
+          leading,
+          trailing,
+          leftInterval?.subList,
+          middleInterval?.subList,
+          rightInterval?.subList,
+        );
 
         popUpList.subLists.clear();
         if (leftInterval != null) {
@@ -1765,7 +1959,7 @@ class _ReorderHolderInterval extends _Interval implements _SubListInterval {
 /// being reordered that has changed position.
 class _ReorderClosingInterval extends _AnimatedSpaceInterval {
   _ReorderClosingInterval(_ControlledAnimation animation, double fromSize)
-      : super(animation, fromSize.toExactMeasure(), _Measure.zero, 1, 0);
+    : super(animation, fromSize.toExactMeasure(), _Measure.zero, 1, 0);
 
   @override
   String get name => 'Rc';
@@ -1781,15 +1975,20 @@ class _ReorderClosingInterval extends _AnimatedSpaceInterval {
 class _ReorderOpeningInterval extends _AnimatedSpaceInterval
     implements _PopUpInterval, _SubListHolderInterval {
   _ReorderOpeningInterval(
-      this.holder,
-      _ControlledAnimation animation,
-      double fromSize,
-      double toSize,
-      this.popUpList,
-      _ListIntervalInterface interface)
-      : assert(!holder._disposed),
-        super(animation, fromSize.toExactMeasure(), toSize.toExactMeasure(), 0,
-            1) {
+    this.holder,
+    _ControlledAnimation animation,
+    double fromSize,
+    double toSize,
+    this.popUpList,
+    _ListIntervalInterface interface,
+  ) : assert(!holder._disposed),
+      super(
+        animation,
+        fromSize.toExactMeasure(),
+        toSize.toExactMeasure(),
+        0,
+        1,
+      ) {
     subList.holder = this;
   }
 
@@ -1815,9 +2014,7 @@ class _ReorderOpeningInterval extends _AnimatedSpaceInterval
 
   @override
   Iterable<MapEntry<String?, Object?>> get attributes =>
-      super.attributes.followedBy([
-        MapEntry('pl', popUpList.debugId),
-      ]);
+      super.attributes.followedBy([MapEntry('pl', popUpList.debugId)]);
 
   @override
   String get name => 'Ro';
@@ -1847,14 +2044,21 @@ mixin _SplitMixin implements _Interval {
       _SplitBuildCounts(leading, middle, trailing);
 
   _SplitBuildCounts _sizedBoxSplitCounts(
-          int leading, int middle, int trailing) =>
-      _SplitBuildCounts(
-          leading > 0 ? 1 : 0, middle > 0 ? 1 : 0, trailing > 0 ? 1 : 0);
+    int leading,
+    int middle,
+    int trailing,
+  ) => _SplitBuildCounts(
+    leading > 0 ? 1 : 0,
+    middle > 0 ? 1 : 0,
+    trailing > 0 ? 1 : 0,
+  );
 
   _SplitBuildCounts _complexSplitCounts(int leading, int middle, int trailing) {
     final leftBuildCount = math.min(leading, buildCount);
-    var middleBuildCount =
-        math.min(itemCount - trailing - leading, buildCount - leftBuildCount);
+    var middleBuildCount = math.min(
+      itemCount - trailing - leading,
+      buildCount - leftBuildCount,
+    );
     final int rightBuildCount;
     if (trailing == 0) {
       rightBuildCount = 0;
@@ -1869,30 +2073,39 @@ mixin _SplitMixin implements _Interval {
 
   @override
   _SplitResult _performSplit(
-      int leading,
-      int trailing,
-      Iterable<_Interval>? middle,
-      bool createMiddle,
-      _UpdateCallback? middleUpdateCallback) {
+    int leading,
+    int trailing,
+    Iterable<_Interval>? middle,
+    bool createMiddle,
+    _UpdateCallback? middleUpdateCallback,
+  ) {
     final middleItemCount = itemCount - leading - trailing;
     final buildCounts = splitCounts(leading, middleItemCount, trailing);
     return _SplitResult(
       _createSplitInterval(buildCounts.left, leading, 0)?.iterable(),
-      _createSplitInterval(buildCounts.right, trailing,
-              buildCounts.left + buildCounts.middle)
-          ?.iterable(),
+      _createSplitInterval(
+        buildCounts.right,
+        trailing,
+        buildCounts.left + buildCounts.middle,
+      )?.iterable(),
       createMiddle
           ? _createSplitInterval(
-                  buildCounts.middle, middleItemCount, buildCounts.left)
-              ?.iterable()
+              buildCounts.middle,
+              middleItemCount,
+              buildCounts.left,
+            )?.iterable()
           : middle,
       updateCallback: (list, index, oldBuildCount, newBuildCount) {
         if (forceRebuild) {
           list.addUpdate(index, oldBuildCount, newBuildCount);
         }
         if (!createMiddle) {
-          middleUpdateCallback?.call(list, index + buildCounts.left,
-              buildCounts.middle, middle?.buildCount ?? 0);
+          middleUpdateCallback?.call(
+            list,
+            index + buildCounts.left,
+            buildCounts.middle,
+            middle?.buildCount ?? 0,
+          );
         }
       },
     );
@@ -1902,11 +2115,14 @@ mixin _SplitMixin implements _Interval {
 mixin _ResizingSplitMixin on _SplitMixin implements _ResizableInterval {
   @override
   _ReadyToNewResizingInterval createSplitInterval(
-          int buildCount, int itemCount, int offset) =>
-      _ReadyToNewResizingInterval(
-          itemCount,
-          _Measure(currentSize * itemCount / this.itemCount),
-          averageCount * itemCount / this.itemCount);
+    int buildCount,
+    int itemCount,
+    int offset,
+  ) => _ReadyToNewResizingInterval(
+    itemCount,
+    _Measure(currentSize * itemCount / this.itemCount),
+    averageCount * itemCount / this.itemCount,
+  );
 
   @override
   _SplitBuildCounts splitCounts(int leading, int middle, int trailing) =>
@@ -1918,7 +2134,7 @@ mixin _ResizingSplitMixin on _SplitMixin implements _ResizableInterval {
 
 class _DebugBox extends _DebugWidget {
   _DebugBox(Widget child, this.interval)
-      : super(child, () => 'SizedBox(${interval._debugId})');
+    : super(child, () => 'SizedBox(${interval._debugId})');
 
   final _Interval interval;
 }

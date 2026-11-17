@@ -32,7 +32,7 @@ class AnimatedListView extends BoxScrollView {
   /// - [holdScrollOffset], holds the scroll position when above items are modified (see also
   ///   [AnimatedSliverChildBuilderDelegate.holdScrollOffset]);
   AnimatedListView({
-    Key? key,
+    super.key,
     required this.listController,
     required AnimatedWidgetBuilder itemBuilder,
     required int initialItemCount,
@@ -49,59 +49,43 @@ class AnimatedListView extends BoxScrollView {
     void Function(int, int)? didFinishLayoutCallback,
     bool holdScrollOffset = false,
     //
-    Axis scrollDirection = Axis.vertical,
-    bool reverse = false,
+    super.scrollDirection,
+    super.reverse,
     ScrollController? scrollController,
-    bool? primary,
-    ScrollPhysics? physics,
-    bool shrinkWrap = false,
-    EdgeInsetsGeometry? padding,
+    super.primary,
+    super.physics,
+    super.shrinkWrap,
+    super.padding,
     bool addAutomaticKeepAlives = true,
     bool addRepaintBoundaries = true,
-    // bool addSemanticIndexes = true,
-    double? cacheExtent,
-    // int? semanticChildCount,
-    DragStartBehavior dragStartBehavior = DragStartBehavior.start,
-    ScrollViewKeyboardDismissBehavior keyboardDismissBehavior =
+    // Keep the existing public cacheExtent parameter.
+    // ignore: deprecated_member_use
+    super.cacheExtent,
+    super.dragStartBehavior,
+    ScrollViewKeyboardDismissBehavior super.keyboardDismissBehavior =
         ScrollViewKeyboardDismissBehavior.manual,
-    String? restorationId,
-    Clip clipBehavior = Clip.hardEdge,
-  })  : assert(initialItemCount >= 0),
-        // assert(semanticChildCount == null || semanticChildCount <= itemCount),
-        delegate = AnimatedSliverChildBuilderDelegate(
-          itemBuilder,
-          initialItemCount,
-          addAutomaticKeepAlives: addAutomaticKeepAlives,
-          addRepaintBoundaries: addRepaintBoundaries,
-          //  addSemanticIndexes: addSemanticIndexes,
-          animator: animator,
-          addLongPressReorderable: addLongPressReorderable,
-          addAnimatedElevation: addAnimatedElevation,
-          addFadeTransition: addFadeTransition,
-          morphResizeWidgets: morphResizeWidgets,
-          morphDuration: morphDuration,
-          morphComparator: morphComparator,
-          reorderModel: reorderModel,
-          initialScrollOffsetCallback: initialScrollOffsetCallback,
-          didFinishLayoutCallback: didFinishLayoutCallback,
-          holdScrollOffset: holdScrollOffset,
-        ),
-        super(
-          key: key,
-          scrollDirection: scrollDirection,
-          reverse: reverse,
-          controller: scrollController ?? ScrollController(),
-          primary: primary,
-          physics: physics,
-          shrinkWrap: shrinkWrap,
-          padding: padding,
-          cacheExtent: cacheExtent,
-          // semanticChildCount: semanticChildCount ?? initialItemCount,
-          dragStartBehavior: dragStartBehavior,
-          keyboardDismissBehavior: keyboardDismissBehavior,
-          restorationId: restorationId,
-          clipBehavior: clipBehavior,
-        );
+    super.restorationId,
+    super.clipBehavior,
+  }) : assert(initialItemCount >= 0),
+       delegate = AnimatedSliverChildBuilderDelegate(
+         itemBuilder,
+         initialItemCount,
+         addAutomaticKeepAlives: addAutomaticKeepAlives,
+         addRepaintBoundaries: addRepaintBoundaries,
+
+         animator: animator,
+         addLongPressReorderable: addLongPressReorderable,
+         addAnimatedElevation: addAnimatedElevation,
+         addFadeTransition: addFadeTransition,
+         morphResizeWidgets: morphResizeWidgets,
+         morphDuration: morphDuration,
+         morphComparator: morphComparator,
+         reorderModel: reorderModel,
+         initialScrollOffsetCallback: initialScrollOffsetCallback,
+         didFinishLayoutCallback: didFinishLayoutCallback,
+         holdScrollOffset: holdScrollOffset,
+       ),
+       super(controller: scrollController ?? ScrollController());
 
   /// Constructs an animated list view with a custom delegate.
   ///
@@ -110,41 +94,28 @@ class AnimatedListView extends BoxScrollView {
   /// - [listController], an [AnimatedListController] mainly used to be notified about any changes to the underlying list;
   /// - [delegate], your custom [AnimatedSliverChildDelegate] delegate.
   const AnimatedListView.custom({
-    Key? key,
+    super.key,
     required this.listController,
     required this.delegate,
     //
-    Axis scrollDirection = Axis.vertical,
-    bool reverse = false,
-    ScrollController? controller,
-    bool? primary,
-    ScrollPhysics? physics,
-    bool shrinkWrap = false,
-    EdgeInsetsGeometry? padding,
+    super.scrollDirection,
+    super.reverse,
+    super.controller,
+    super.primary,
+    super.physics,
+    super.shrinkWrap,
+    super.padding,
     this.itemExtent,
-    double? cacheExtent,
-    int? semanticChildCount,
-    DragStartBehavior dragStartBehavior = DragStartBehavior.start,
-    ScrollViewKeyboardDismissBehavior keyboardDismissBehavior =
+    // Keep the existing public cacheExtent parameter.
+    // ignore: deprecated_member_use
+    super.cacheExtent,
+    super.semanticChildCount,
+    super.dragStartBehavior,
+    ScrollViewKeyboardDismissBehavior super.keyboardDismissBehavior =
         ScrollViewKeyboardDismissBehavior.manual,
-    String? restorationId,
-    Clip clipBehavior = Clip.hardEdge,
-  }) : super(
-          key: key,
-          scrollDirection: scrollDirection,
-          reverse: reverse,
-          controller: controller,
-          primary: primary,
-          physics: physics,
-          shrinkWrap: shrinkWrap,
-          padding: padding,
-          cacheExtent: cacheExtent,
-          semanticChildCount: semanticChildCount,
-          dragStartBehavior: dragStartBehavior,
-          keyboardDismissBehavior: keyboardDismissBehavior,
-          restorationId: restorationId,
-          clipBehavior: clipBehavior,
-        );
+    super.restorationId,
+    super.clipBehavior,
+  });
 
   final AnimatedListController listController;
 
@@ -156,9 +127,10 @@ class AnimatedListView extends BoxScrollView {
   Widget buildChildLayout(BuildContext context) {
     if (itemExtent != null) {
       return AnimatedSliverFixedExtentList(
-          delegate: delegate,
-          itemExtent: itemExtent!,
-          controller: listController);
+        delegate: delegate,
+        itemExtent: itemExtent!,
+        controller: listController,
+      );
     }
     return AnimatedSliverList(delegate: delegate, controller: listController);
   }
@@ -167,9 +139,11 @@ class AnimatedListView extends BoxScrollView {
 /// A base class for animated sliver that have multiple box children, inspired by [SliverMultiBoxAdaptorWidget].
 abstract class AnimatedSliverMultiBoxAdaptorWidget
     extends SliverWithKeepAliveWidget {
-  const AnimatedSliverMultiBoxAdaptorWidget(
-      {Key? key, required this.listController, required this.delegate})
-      : super(key: key);
+  const AnimatedSliverMultiBoxAdaptorWidget({
+    super.key,
+    required this.listController,
+    required this.delegate,
+  });
 
   final AnimatedListController listController;
 
@@ -190,10 +164,10 @@ abstract class AnimatedSliverMultiBoxAdaptorWidget
 /// axis, inspired by [SliverList].
 class AnimatedSliverList extends AnimatedSliverMultiBoxAdaptorWidget {
   const AnimatedSliverList({
-    Key? key,
-    required AnimatedSliverChildDelegate delegate,
+    super.key,
+    required super.delegate,
     required AnimatedListController controller,
-  }) : super(key: key, listController: controller, delegate: delegate);
+  }) : super(listController: controller);
 
   @override
   AnimatedSliverMultiBoxAdaptorElement createElement() =>
@@ -202,7 +176,9 @@ class AnimatedSliverList extends AnimatedSliverMultiBoxAdaptorWidget {
   @override
   AnimatedRenderSliverList createRenderObject(BuildContext context) {
     return AnimatedRenderSliverList(
-        this, context as AnimatedSliverMultiBoxAdaptorElement);
+      this,
+      context as AnimatedSliverMultiBoxAdaptorElement,
+    );
   }
 }
 
@@ -211,11 +187,11 @@ class AnimatedSliverList extends AnimatedSliverMultiBoxAdaptorWidget {
 class AnimatedSliverFixedExtentList
     extends AnimatedSliverMultiBoxAdaptorWidget {
   const AnimatedSliverFixedExtentList({
-    Key? key,
-    required AnimatedSliverChildDelegate delegate,
+    super.key,
+    required super.delegate,
     required AnimatedListController controller,
     required this.itemExtent,
-  }) : super(key: key, listController: controller, delegate: delegate);
+  }) : super(listController: controller);
 
   final double itemExtent;
 
@@ -226,9 +202,10 @@ class AnimatedSliverFixedExtentList
   @override
   AnimatedRenderSliverFixedExtentList createRenderObject(BuildContext context) {
     return AnimatedRenderSliverFixedExtentList(
-        widget: this,
-        childManager: context as AnimatedSliverMultiBoxAdaptorElement,
-        itemExtent: itemExtent);
+      widget: this,
+      childManager: context as AnimatedSliverMultiBoxAdaptorElement,
+      itemExtent: itemExtent,
+    );
   }
 }
 
@@ -237,9 +214,9 @@ class AnimatedSliverFixedExtentList
 /// All attributes, except for [list], are identical to those of the [AnimatedListView].
 class AutomaticAnimatedListView<T> extends AnimatedListView {
   AutomaticAnimatedListView({
-    Key? key,
+    super.key,
     required this.list,
-    required AnimatedListController listController,
+    required super.listController,
     required this.itemBuilder,
     required this.comparator,
     AnimatedListAnimator animator = const DefaultAnimatedListAnimator(),
@@ -255,62 +232,47 @@ class AutomaticAnimatedListView<T> extends AnimatedListView {
     bool holdScrollOffset = false,
     this.detectMoves = false,
     //
-    Axis scrollDirection = Axis.vertical,
-    bool reverse = false,
+    super.scrollDirection,
+    super.reverse,
     ScrollController? scrollController,
-    bool? primary,
-    ScrollPhysics? physics,
-    bool shrinkWrap = false,
-    EdgeInsetsGeometry? padding,
-    double? itemExtent,
+    super.primary,
+    super.physics,
+    super.shrinkWrap,
+    super.padding,
+    super.itemExtent,
     bool addAutomaticKeepAlives = true,
     bool addRepaintBoundaries = true,
-    // bool addSemanticIndexes = true,
-    double? cacheExtent,
+    // Keep the existing public cacheExtent parameter.
+    // ignore: deprecated_member_use
+    super.cacheExtent,
     int? semanticChildCount,
-    DragStartBehavior dragStartBehavior = DragStartBehavior.start,
-    ScrollViewKeyboardDismissBehavior keyboardDismissBehavior =
-        ScrollViewKeyboardDismissBehavior.manual,
-    String? restorationId,
-    Clip clipBehavior = Clip.hardEdge,
+    super.dragStartBehavior,
+    super.keyboardDismissBehavior,
+    super.restorationId,
+    super.clipBehavior,
   }) : super.custom(
-          key: key,
-          scrollDirection: scrollDirection,
-          reverse: reverse,
-          controller: scrollController ?? ScrollController(),
-          primary: primary,
-          physics: physics,
-          shrinkWrap: shrinkWrap,
-          padding: padding,
-          cacheExtent: cacheExtent,
-          // semanticChildCount: semanticChildCount ?? itemCount,
-          dragStartBehavior: dragStartBehavior,
-          keyboardDismissBehavior: keyboardDismissBehavior,
-          restorationId: restorationId,
-          clipBehavior: clipBehavior,
-          itemExtent: itemExtent,
-          listController: listController,
-          delegate: AnimatedSliverChildBuilderDelegate(
-            (context, index, data) {
-              return itemBuilder(context, list[index], data);
-            },
-            list.length,
-            addAutomaticKeepAlives: addAutomaticKeepAlives,
-            addRepaintBoundaries: addRepaintBoundaries,
-            //  addSemanticIndexes: addSemanticIndexes,
-            animator: animator,
-            addLongPressReorderable: addLongPressReorderable,
-            addAnimatedElevation: addAnimatedElevation,
-            addFadeTransition: addFadeTransition,
-            morphResizeWidgets: morphResizeWidgets,
-            morphDuration: morphDuration,
-            morphComparator: morphComparator,
-            reorderModel: reorderModel,
-            initialScrollOffsetCallback: initialScrollOffsetCallback,
-            didFinishLayoutCallback: didFinishLayoutCallback,
-            holdScrollOffset: holdScrollOffset,
-          ),
-        );
+         controller: scrollController ?? ScrollController(),
+         delegate: AnimatedSliverChildBuilderDelegate(
+           (context, index, data) {
+             return itemBuilder(context, list[index], data);
+           },
+           list.length,
+           addAutomaticKeepAlives: addAutomaticKeepAlives,
+           addRepaintBoundaries: addRepaintBoundaries,
+
+           animator: animator,
+           addLongPressReorderable: addLongPressReorderable,
+           addAnimatedElevation: addAnimatedElevation,
+           addFadeTransition: addFadeTransition,
+           morphResizeWidgets: morphResizeWidgets,
+           morphDuration: morphDuration,
+           morphComparator: morphComparator,
+           reorderModel: reorderModel,
+           initialScrollOffsetCallback: initialScrollOffsetCallback,
+           didFinishLayoutCallback: didFinishLayoutCallback,
+           holdScrollOffset: holdScrollOffset,
+         ),
+       );
 
   final AnimatedListDiffListBuilder<T> itemBuilder;
 
@@ -324,25 +286,26 @@ class AutomaticAnimatedListView<T> extends AnimatedListView {
   Widget buildChildLayout(BuildContext context) {
     final widget = super.buildChildLayout(context);
     return _DiffDispatcherWidget(
-        comparator: comparator,
-        controller: listController,
-        itemBuilder: itemBuilder,
-        list: list,
-        detectMoves: detectMoves,
-        child: widget);
+      comparator: comparator,
+      controller: listController,
+      itemBuilder: itemBuilder,
+      list: list,
+      detectMoves: detectMoves,
+      child: widget,
+    );
   }
 }
 
 class _DiffDispatcherWidget<T> extends StatefulWidget {
-  const _DiffDispatcherWidget(
-      {Key? key,
-      required this.controller,
-      required this.comparator,
-      required this.list,
-      required this.itemBuilder,
-      required this.child,
-      required this.detectMoves})
-      : super(key: key);
+  const _DiffDispatcherWidget({
+    super.key,
+    required this.controller,
+    required this.comparator,
+    required this.list,
+    required this.itemBuilder,
+    required this.child,
+    required this.detectMoves,
+  });
 
   final AnimatedListController controller;
   final AnimatedListDiffListBuilder<T> itemBuilder;
@@ -368,8 +331,10 @@ class _DiffDispatcherWidgetState<T> extends State<_DiffDispatcherWidget<T>> {
       comparator: widget.comparator,
     );
     if (oldProcessingList != null) {
-      _dispatcher!
-          .dispatchNewList(oldProcessingList, detectMoves: widget.detectMoves);
+      _dispatcher!.dispatchNewList(
+        oldProcessingList,
+        detectMoves: widget.detectMoves,
+      );
     }
   }
 
@@ -388,8 +353,10 @@ class _DiffDispatcherWidgetState<T> extends State<_DiffDispatcherWidget<T>> {
       _createDispatcher();
     }
     if (oldWidget.list != widget.list) {
-      _dispatcher!
-          .dispatchNewList(widget.list, detectMoves: widget.detectMoves);
+      _dispatcher!.dispatchNewList(
+        widget.list,
+        detectMoves: widget.detectMoves,
+      );
     }
   }
 
@@ -417,8 +384,12 @@ class AutomaticAnimatedListReorderModel<T>
   /// The default implementation always returns `null`.
   @override
   Object? onReorderFeedback(
-          int index, int dropIndex, double offset, double dx, double dy) =>
-      null;
+    int index,
+    int dropIndex,
+    double offset,
+    double dx,
+    double dy,
+  ) => null;
 
   /// See [AnimatedListBaseReorderModel].
   ///
@@ -443,7 +414,7 @@ class AutomaticAnimatedListReorderModel<T>
 /// by the most used classes, such [AnimatedListView], [AutomaticAnimatedListView],
 /// [AnimatedSliverChildBuilderDelegate] and so on.
 class LongPressReorderable extends StatelessWidget {
-  const LongPressReorderable({Key? key, required this.child}) : super(key: key);
+  const LongPressReorderable({super.key, required this.child});
 
   final Widget child;
 
@@ -456,11 +427,16 @@ class LongPressReorderable extends StatelessWidget {
   void _onLongPressStart(BuildContext context, LongPressStartDetails d) {
     final controller = _findListController(context);
     controller?.notifyStartReorder(
-        context, d.localPosition.dx, d.localPosition.dy);
+      context,
+      d.localPosition.dx,
+      d.localPosition.dy,
+    );
   }
 
   void _onLongPressMoveUpdate(
-      BuildContext context, LongPressMoveUpdateDetails d) {
+    BuildContext context,
+    LongPressMoveUpdateDetails d,
+  ) {
     final controller = _findListController(context);
     controller?.notifyUpdateReorder(d.localPosition.dx, d.localPosition.dy);
   }
@@ -473,10 +449,11 @@ class LongPressReorderable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onLongPressStart: (d) => _onLongPressStart(context, d),
-        onLongPressEnd: (d) => _onLongPressEnd(context, d),
-        onLongPressMoveUpdate: (d) => _onLongPressMoveUpdate(context, d),
-        child: child);
+      onLongPressStart: (d) => _onLongPressStart(context, d),
+      onLongPressEnd: (d) => _onLongPressEnd(context, d),
+      onLongPressMoveUpdate: (d) => _onLongPressMoveUpdate(context, d),
+      child: child,
+    );
   }
 }
 
@@ -502,8 +479,12 @@ abstract class AnimatedListBaseReorderModel {
   const AnimatedListBaseReorderModel();
   bool onReorderStart(int index, double dx, double dy) => false;
   Object? onReorderFeedback(
-          int index, int dropIndex, double offset, double dx, double dy) =>
-      null;
+    int index,
+    int dropIndex,
+    double offset,
+    double dx,
+    double dy,
+  ) => null;
   bool onReorderMove(int index, int dropIndex) => false;
   bool onReorderComplete(int index, int dropIndex, Object? slot) => false;
 }
@@ -511,24 +492,24 @@ abstract class AnimatedListBaseReorderModel {
 /// A callback function-based version of [AnimatedListBaseReorderModel].
 class AnimatedListReorderModel extends AnimatedListBaseReorderModel {
   const AnimatedListReorderModel({
-    bool Function(int index, double dx, double dy)? onReorderStart,
-    Object? Function(
-            int index, int dropIndex, double offset, double dx, double dy)?
-        onReorderFeedback,
-    bool Function(int index, int dropIndex)? onReorderMove,
-    bool Function(int index, int dropIndex, Object? slot)? onReorderComplete,
-  })  : _onReorderStart = onReorderStart,
-        _onReorderFeedback = onReorderFeedback,
-        _onReorderMove = onReorderMove,
-        _onReorderComplete = onReorderComplete;
+    this._onReorderStart,
+    this._onReorderFeedback,
+    this._onReorderMove,
+    this._onReorderComplete,
+  });
 
   final bool Function(int index, double dx, double dy)? _onReorderStart;
   final Object? Function(
-          int index, int dropIndex, double offset, double dx, double dy)?
-      _onReorderFeedback;
+    int index,
+    int dropIndex,
+    double offset,
+    double dx,
+    double dy,
+  )?
+  _onReorderFeedback;
   final bool Function(int index, int dropIndex)? _onReorderMove;
   final bool Function(int index, int dropIndex, Object? slot)?
-      _onReorderComplete;
+  _onReorderComplete;
 
   @override
   bool onReorderStart(int index, double dx, double dy) =>
@@ -536,8 +517,12 @@ class AnimatedListReorderModel extends AnimatedListBaseReorderModel {
 
   @override
   Object? onReorderFeedback(
-          int index, int dropIndex, double offset, double dx, double dy) =>
-      _onReorderFeedback?.call(index, dropIndex, offset, dx, dy);
+    int index,
+    int dropIndex,
+    double offset,
+    double dx,
+    double dy,
+  ) => _onReorderFeedback?.call(index, dropIndex, offset, dx, dy);
 
   @override
   bool onReorderMove(int index, int dropIndex) =>

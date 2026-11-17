@@ -1,11 +1,11 @@
-# great_list_view
+# great_list_view_plus
 
 ## Overview
 
-A Flutter package that includes a powerful, animated and reorderable list view. Just notify the list view of changes in your underlying list and the list view will automatically animate. You can also change the entire list and automatically dispatch the differences detected by the Myers alghoritm. 
+A Flutter package that includes a powerful, animated and reorderable list view. Just notify the list view of changes in your underlying list and the list view will automatically animate. You can also change the entire list and automatically dispatch the differences detected by the Myers algorithm.
 You can also reorder the items of your list, by simply long-tapping the item you want to move or otherwise, for example via a drag handle.
 
-Compared to the `AnimatedList`, `ReorderableListView` material widgets or other thid-party libraries, this library offers:
+Compared to the `AnimatedList`, `ReorderableListView` material widgets or other third-party libraries, this library offers:
 
 - it can be both animated and reordered at the same time;
 - it works without necessarily specifying a `List` object, but simply using index-based `builder` callbacks;
@@ -14,54 +14,126 @@ Compared to the `AnimatedList`, `ReorderableListView` material widgets or other 
 - the library doesn't use additional widget for items, like `Stack`, `Offstage` or `Overlay`.
 - it is not mandatory to provide a key for each item, because everything works using only indexes;
 
-![Example 1](https://github.com/DavideBelsole/great_list_view/raw/master/images/example1.gif)
+![Example 1](https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/example1.gif)
 
 This package also provides a tree adapter to create a tree view without defining a new widget for it, but simply by converting your tree data into a linear list view, animated or not. Your tree data can be any data type, just describe it using a model based on a bunch of callbacks.
 
-![Example 2](https://github.com/DavideBelsole/great_list_view/raw/master/images/example2.gif)
+![Example 2](https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/example2.gif)
 
-<b>IMPORTANT!!!
-This is still an alpha version! This library is constantly evolving and bug fixing, so it may change very often at the moment, sorry.
+## Maintenance and compatibility
 
-This library lacks of a bunch of features at the moment:
-- Lack of a feature to create a separated list view (like ListView.separated construtor);
-- No semantics are currently supported;
-- No infinite lists are supported.
+This is a maintained fork of [great_list_view 0.2.3](https://github.com/DavideBelsole/great_list_view)
+by Davide Belsole, distributed under the original MIT license. The first maintained
+release is 0.3.0. Existing list APIs and animation behavior are preserved, including
+the exported `worker_manager` 5.x API.
 
-I am developing this library in my spare time just for pleasure. Although it may seem on the surface to be an easy library to develop, I assure you that it is instead quite complex. Therefore the time required for development is becoming more and more demanding.
-Anyone who likes this library can support me by making a donation at will. This will definitely motivate me and push me to bring this library to its completion. I will greatly appreciate your contribution.
-</b>
+Requires **Flutter 3.47.0 / Dart 3.13.0 or newer**. Development uses Flutter 3.47.9
+(Dart 3.13.7). CI checks Flutter 3.47.0 and 3.47.9; formatting is checked
+only with the development SDK. These checks cover Dart analysis and Flutter tests,
+not device acceptance on every platform. The existing implementation uses
+`dart:io`; this release does not add web support.
 
-[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/donate?hosted_button_id=EJLUKSHKXMTNQ)
+The [example](example/README.md) includes runnable Android, iOS, macOS, Windows,
+and Linux projects. The same list UI is used on each platform.
 
+Existing limitations remain: no separated-list constructor, no complete list
+semantics support, and no infinite lists.
 
-## Installing
-
-Add this to your `pubspec.yaml` file:
+## Installing and migrating
 
 ```yaml
 dependencies:
-  great_list_view: ^0.2.3
+  great_list_view_plus: ^0.3.0
 ```
 
-and run;
+```dart
+import 'package:great_list_view_plus/great_list_view_plus.dart';
+```
+
+Replace the old dependency and package URI. The old entry-point filename also
+works within the new package:
+`package:great_list_view_plus/great_list_view.dart`. Auxiliary imports such as
+`package:great_list_view_plus/tree_list_adapter.dart` keep their filenames.
+Public list classes, constructors, callbacks, and `Executor` remain available.
+
+**Design library migration:** Material components now come from `material_ui`,
+including the surface added around reorderable rows and `ArrowButton`. Migrate
+the host app's Material imports, themes, ink widgets, and localization delegates
+to that package as well. Identically named SDK Material classes belong to a
+different library and do not share Material ancestry or themes. This release is
+not a transparent replacement for apps that still use `flutter/material.dart`.
+See the [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui).
+Pure list, tree, and transition code uses `flutter/widgets.dart`. Cupertino hosts
+are supported through the new `cupertino_ui` design library; this package does
+not directly use Cupertino components, so it has no runtime direct dependency
+on `cupertino_ui`.
+
+## Development
+
+Install [FVM](https://fvm.app/documentation/getting-started/installation), then run:
 
 ```sh
-flutter packages get
+fvm install
+fvm use 3.47.9 --skip-pub-get
+make bootstrap
+make check
+fvm flutter pub publish --dry-run
 ```
+
+The Makefile uses `.fvm/flutter_sdk` when present and otherwise uses Flutter and
+Dart from `PATH`. Override both tools to check another SDK without changing the
+project pin:
+
+```sh
+make bootstrap analyze test \
+  FLUTTER=/path/to/flutter/bin/flutter DART=/path/to/flutter/bin/dart
+```
+
+Use `make help` for available targets. `make check` resolves dependencies, checks
+formatting, analyzes the package and example, and runs both test suites. `make aio`
+resolves dependencies and applies Dart fixes and formatting before analysis and
+tests. Use Flutter commands directly for builds and publishing.
+The library does not track its root lockfile; the private example keeps its own.
+CI resolves dependencies for each SDK.
+
+Test output supports readable logs, GitHub annotations, and optional JSON files:
+
+```sh
+mkdir -p test-results
+make test
+make test CI=1
+make test CI=1 MACHINE_OUT=test-results/all_test.log
+```
+
+`make test` runs package tests and then example tests in their own package
+contexts. Machine output supplements the readable reporter and keeps failing
+exit codes. `MACHINE_OUT` is relative to the repository root: the example report
+is saved beside it with an `example_` filename prefix, for example
+`all_test.log` and `example_all_test.log`. CI calls this same entry point;
+native example builds use Flutter commands locally.
+
+The reusable CI workflow runs for pull requests and pushes to `master`, manual
+tests, and version tags. Each SDK uploads separate test artifacts; the report
+workflow aggregates them without executing pull-request code. Publishing uses
+`v<major>.<minor>.<patch>` tags after the test matrix passes. Configure the
+repository and publishing workflow in pub.dev automated publishing before using
+that workflow. The first version must be published manually before automated
+publishing can be enabled; see [Pub automated publishing](https://dart.dev/tools/pub/automated-publishing).
+Actual publication is a separate release step; adding CI files does not publish
+the package.
 
 ## Automatic Animated List View
 
 The simplest way to create an animated list view that automatically animates to fit the contents of a `List` is to use the `AutomaticAnimatedListView` widget.
 A list of data must be passed to the widget via the `list` attribute.
-This widget uses an `AnimatedListDiffListDispatcher` internally. This class uses the Meyes algorithm that dispatches the differences to the list view after comparing the new `list` object with the old one.
+This widget uses an `AnimatedListDiffListDispatcher` internally. This class uses the Myers algorithm that dispatches the differences to the list view after comparing the new `list` object with the old one.
 In this regard, it is necessary to pass to the `comparator` attribute an `AnimatedListDiffListBaseComparator` object which takes care of comparing an item of the old list with an item of the new list via two methods:
 - `sameItem` must return `true` if the two compared items are the same (if the items have their own ID, just check the two IDs are equal);
-- `sameContent` is called only if `sameItem` has returned `true`, and must return `true` if the item has changed in content (if `false` is returned, this dispatches a change notification to the list view).
+- `sameContent` is called only when `sameItem` returns `true`. Return `true` for equal content and `false` to dispatch a change notification.
 You can also use the callback function-based `AnimatedListDiffListComparator` version, saving you from creating a new derived class.
 
 The list view needs an `AnimatedListController` object to be controlled. Just instantiate it and pass it to the `listController` attribute of the `AutomaticAnimatedListView` widget.
-The `AutomaticAnimatedListView` widget uses the controller to notify the changes identified by the Meyes algorithm.
+The `AutomaticAnimatedListView` widget uses the controller to notify the changes identified by the Myers algorithm.
 
 Finally, you have to pass a delegate to the `itemBuilder` attribute in order to build all item widgets of the list view.
 The delegate has three parameters:
@@ -85,36 +157,38 @@ I do not recommend enabling this attribute for lists that are too large, as the 
 ### Example 1 (Automatic Animated List View)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -143,12 +217,15 @@ class _BodyState extends State<Body> {
       child: AutomaticAnimatedListView<ItemData>(
         list: currentList,
         comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.color == b.color && a.fixedHeight == b.fixedHeight),
+          sameItem: (a, b) => a.id == b.id,
+          sameContent: (a, b) =>
+              a.color == b.color && a.fixedHeight == b.fixedHeight,
+        ),
         itemBuilder: (context, item, data) => data.measuring
             ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
+                margin: EdgeInsets.all(5),
+                height: item.fixedHeight ?? 60,
+              )
             : Item(data: item),
         listController: controller,
         scrollController: scrollController,
@@ -161,25 +238,26 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () => gkey.currentState?.swapList(),
+      child: AnimatedContainer(
+        height: data.fixedHeight ?? 60,
+        duration: const Duration(milliseconds: 500),
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(
+          child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
   }
 }
 
@@ -196,7 +274,7 @@ List<ItemData> listA = [
   ItemData(3),
   ItemData(4, Colors.cyan),
   ItemData(5),
-  ItemData(8, Colors.green)
+  ItemData(8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData(4, Colors.cyan),
@@ -213,7 +291,7 @@ final gkey = GlobalKey<_BodyState>();
 ```
 
 However, if the changing content cannot be implicitly animated using implicit animations, such as animating a text that is changing, this library also provides the `MorphTransition` widget, which performs a cross-fade effect between an old widget and the new one.
-The `MorphTransition` widget uses a delegate to be passed to the `comparator` attribute which takes care of comparing the old widget with the new one. This delegate has to return `false` if the two widgets are different, in order to trigger the cross-fade effect. 
+The `MorphTransition` widget uses a delegate to be passed to the `comparator` attribute which takes care of comparing the old widget with the new one. This delegate has to return `false` if the two widgets are different, in order to trigger the cross-fade effect.
 This comparator needs to be well implemented, because returning `false` even when not necessary will lead to a drop in performance as this effect would also be applied to two completely identical widgets, thus wasting precious resources to perform an animation that is not actually necessary and that is not even perceptible to the human eye.
 
 More simply, you can pass the delegate directly to the `morphComparator` attribute of the `AutomaticAnimatedListView` widget, in this way all items will automatically be wrapped with a `MorphTransition` widget.
@@ -223,36 +301,38 @@ For more features please read the documentation of the `AutomaticAnimatedListVie
 ### Example 2 (Automatic Animated List View with MorphTransition)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -281,14 +361,17 @@ class _BodyState extends State<Body> {
       child: AutomaticAnimatedListView<ItemData>(
         list: currentList,
         comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.text == b.text &&
-                a.color == b.color &&
-                a.fixedHeight == b.fixedHeight),
+          sameItem: (a, b) => a.id == b.id,
+          sameContent: (a, b) =>
+              a.text == b.text &&
+              a.color == b.color &&
+              a.fixedHeight == b.fixedHeight,
+        ),
         itemBuilder: (context, item, data) => data.measuring
             ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
+                margin: EdgeInsets.all(5),
+                height: item.fixedHeight ?? 60,
+              )
             : Item(data: item),
         listController: controller,
         morphComparator: (a, b) {
@@ -308,24 +391,23 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: Container(
-            height: data.fixedHeight ?? 60,
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              data.text,
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () => gkey.currentState?.swapList(),
+      child: Container(
+        height: data.fixedHeight ?? 60,
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(child: Text(data.text, style: TextStyle(fontSize: 16))),
+      ),
+    );
   }
 }
 
@@ -334,8 +416,12 @@ class ItemData {
   final String text;
   final Color color;
   final double? fixedHeight;
-  const ItemData(this.text, this.id,
-      [this.color = Colors.blue, this.fixedHeight]);
+  const ItemData(
+    this.text,
+    this.id, [
+    this.color = Colors.blue,
+    this.fixedHeight,
+  ]);
 }
 
 List<ItemData> listA = [
@@ -344,14 +430,14 @@ List<ItemData> listA = [
   ItemData('Text 3', 3),
   ItemData('Text 4', 4),
   ItemData('Text 5', 5),
-  ItemData('Text 8', 8, Colors.green)
+  ItemData('Text 8', 8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData('Text 2', 2),
   ItemData('Text 6', 6),
   ItemData('Other text 5', 5, Colors.pink, 100),
   ItemData('Text 7', 7),
-  ItemData('Other text 8', 8, Colors.yellowAccent)
+  ItemData('Other text 8', 8, Colors.yellowAccent),
 ];
 
 final scrollController = ScrollController();
@@ -363,7 +449,7 @@ final gkey = GlobalKey<_BodyState>();
 
 If you want to have more control over the list view, or if your data is not just items of a `List` object, I suggest using the more flexible `AnimatedListView` widget.
 
-Unlike the `AutomaticAnimatedListView` widget, the `AnimatedListView` does not use the Meyes algorithm internally, so all change notifications have to be manually notified to the list view.
+Unlike the `AutomaticAnimatedListView` widget, the `AnimatedListView` does not use the Myers algorithm internally, so all change notifications have to be manually notified to the list view.
 
 As with the `AutomaticAnimatedListView` widget, you need to pass an `AnimatedListController` object to the `listController` attribute.
 
@@ -384,35 +470,41 @@ If you need to send multiple notifications in sequence, it is recommended for pe
 ```dart
 import 'dart:math';
 
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(
           floatingActionButton: FloatingActionButton.extended(
-              label: Text('Random Change'), onPressed: randomChange),
+            label: Text('Random Change'),
+            onPressed: randomChange,
+          ),
           body: Body(),
-        )));
+        ),
+      ),
+    );
   }
 }
 
 class Body extends StatelessWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -433,23 +525,23 @@ class Body extends StatelessWidget {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        height: 60,
-        margin: EdgeInsets.all(5),
-        padding: EdgeInsets.all(15),
-        decoration: BoxDecoration(
-            color: kColors[data.color],
-            border: Border.all(color: Colors.black12, width: 0)),
-        child: Center(
-            child: Text(
-          'Item ${data.id}',
-          style: TextStyle(fontSize: 16),
-        )));
+      duration: const Duration(milliseconds: 500),
+      height: 60,
+      margin: EdgeInsets.all(5),
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: kColors[data.color],
+        border: Border.all(color: Colors.black12, width: 0),
+      ),
+      child: Center(
+        child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+      ),
+    );
   }
 }
 
@@ -457,7 +549,7 @@ final kColors = const <Color>[
   Colors.teal,
   Colors.lightGreen,
   Colors.redAccent,
-  Colors.pink
+  Colors.pink,
 ];
 
 class ItemData {
@@ -479,8 +571,11 @@ void randomChange() {
       final to = from + 1 + r.nextInt(list.length - from);
       final subList = list.sublist(from, to);
       list.removeRange(from, to);
-      controller.notifyRemovedRange(from, to - from,
-          (context, index, data) => Item(data: subList[index]));
+      controller.notifyRemovedRange(
+        from,
+        to - from,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
     case 1: // insert
       final from = r.nextInt(list.length + 1);
@@ -493,10 +588,15 @@ void randomChange() {
       final to = from + 1 + r.nextInt(list.length - from);
       final count = 1 + r.nextInt(5);
       final subList = list.sublist(from, to);
-      list.replaceRange(
-          from, to, [for (var i = 0; i < count; i++) ItemData(++id)]);
-      controller.notifyReplacedRange(from, to - from, count,
-          (context, index, data) => Item(data: subList[index]));
+      list.replaceRange(from, to, [
+        for (var i = 0; i < count; i++) ItemData(++id),
+      ]);
+      controller.notifyReplacedRange(
+        from,
+        to - from,
+        count,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
     case 3: // change
       final from = r.nextInt(list.length);
@@ -504,10 +604,13 @@ void randomChange() {
       final subList = list.sublist(from, to);
       list.replaceRange(from, to, [
         for (var i = 0; i < to - from; i++)
-          ItemData(subList[i].id, subList[i].color + 1)
+          ItemData(subList[i].id, subList[i].color + 1),
       ]);
-      controller.notifyChangedRange(from, to - from,
-          (context, index, data) => Item(data: subList[index]));
+      controller.notifyChangedRange(
+        from,
+        to - from,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
     case 4: // move
       var from = r.nextInt(list.length);
@@ -526,43 +629,45 @@ final scrollController = ScrollController();
 final controller = AnimatedListController();
 ```
 
-It is always possible to manually integrate the Meyes algorithm using an `AnimatedListDiffListDispatcher` or a more generic `AnimatedListDiffDispatcher` (if your data are not formed from elements of a `List` object).
+It is always possible to manually integrate the Myers algorithm using an `AnimatedListDiffListDispatcher` or a more generic `AnimatedListDiffDispatcher` (if your data are not formed from elements of a `List` object).
 
 For more features please read the documentation of the `AnimatedListView` class.
 
 ### Example 4 (Animated List View with a dispatcher)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -577,9 +682,10 @@ class _BodyState extends State<Body> {
       itemBuilder: itemBuilder,
       currentList: listA,
       comparator: AnimatedListDiffListComparator<ItemData>(
-          sameItem: (a, b) => a.id == b.id,
-          sameContent: (a, b) =>
-              a.color == b.color && a.fixedHeight == b.fixedHeight),
+        sameItem: (a, b) => a.id == b.id,
+        sameContent: (a, b) =>
+            a.color == b.color && a.fixedHeight == b.fixedHeight,
+      ),
     );
   }
 
@@ -611,30 +717,34 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () => gkey.currentState?.swapList(),
+      child: AnimatedContainer(
+        height: data.fixedHeight ?? 60,
+        duration: const Duration(milliseconds: 500),
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(
+          child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
   }
 }
 
 Widget itemBuilder(
-    BuildContext context, ItemData item, AnimatedWidgetBuilderData data) {
+  BuildContext context,
+  ItemData item,
+  AnimatedWidgetBuilderData data,
+) {
   if (data.measuring) {
     return Container(margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60);
   }
@@ -654,7 +764,7 @@ List<ItemData> listA = [
   ItemData(3),
   ItemData(4, Colors.cyan),
   ItemData(5),
-  ItemData(8, Colors.green)
+  ItemData(8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData(4, Colors.cyan),
@@ -670,7 +780,7 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-## Animated Sliver List 
+## Animated Sliver List
 
 If the list view consists of multiple slivers, you will need to use the `AnimatedSliverList` (or `AnimatedSliverFixedExtentList` if the items all have a fixed extent) class within a `CustomScrollView` widget.
 
@@ -683,36 +793,38 @@ The `AnimatedSliverChildBuilderDelegate` delegate is more than enough to cover m
 ### Example 5 (Animated List using slivers)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -727,9 +839,10 @@ class _BodyState extends State<Body> {
       itemBuilder: itemBuilder,
       currentList: listA,
       comparator: AnimatedListDiffListComparator<ItemData>(
-          sameItem: (a, b) => a.id == b.id,
-          sameContent: (a, b) =>
-              a.color == b.color && a.fixedHeight == b.fixedHeight),
+        sameItem: (a, b) => a.id == b.id,
+        sameContent: (a, b) =>
+            a.color == b.color && a.fixedHeight == b.fixedHeight,
+      ),
     );
   }
 
@@ -751,23 +864,28 @@ class _BodyState extends State<Body> {
         controller: scrollController,
         slivers: [
           SliverList(
-              delegate: SliverChildBuilderDelegate(
-            (BuildContext context, int itemIndex) {
+            delegate: SliverChildBuilderDelegate((
+              BuildContext context,
+              int itemIndex,
+            ) {
               return Container(
-                  alignment: Alignment.center,
-                  height: 200,
-                  decoration: BoxDecoration(
-                      border: Border.all(color: Colors.red, width: 4)),
-                  child: ListTile(title: Text('This is another sliver')));
-            },
-            childCount: 1,
-          )),
+                alignment: Alignment.center,
+                height: 200,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.red, width: 4),
+                ),
+                child: ListTile(title: Text('This is another sliver')),
+              );
+            }, childCount: 1),
+          ),
           AnimatedSliverList(
-              controller: controller,
-              delegate: AnimatedSliverChildBuilderDelegate(
-                  (context, index, data) =>
-                      itemBuilder(context, dispatcher.currentList[index], data),
-                  dispatcher.currentList.length))
+            controller: controller,
+            delegate: AnimatedSliverChildBuilderDelegate(
+              (context, index, data) =>
+                  itemBuilder(context, dispatcher.currentList[index], data),
+              dispatcher.currentList.length,
+            ),
+          ),
         ],
       ),
     );
@@ -777,30 +895,34 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () => gkey.currentState?.swapList(),
+      child: AnimatedContainer(
+        height: data.fixedHeight ?? 60,
+        duration: const Duration(milliseconds: 500),
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(
+          child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
   }
 }
 
 Widget itemBuilder(
-    BuildContext context, ItemData item, AnimatedWidgetBuilderData data) {
+  BuildContext context,
+  ItemData item,
+  AnimatedWidgetBuilderData data,
+) {
   if (data.measuring) {
     return Container(margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60);
   }
@@ -820,14 +942,14 @@ List<ItemData> listA = [
   ItemData(3),
   ItemData(4),
   ItemData(5),
-  ItemData(8, Colors.green)
+  ItemData(8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData(2),
   ItemData(6),
   ItemData(5, Colors.pink, 100),
   ItemData(7),
-  ItemData(8, Colors.yellowAccent)
+  ItemData(8, Colors.yellowAccent),
 ];
 
 final scrollController = ScrollController();
@@ -848,36 +970,38 @@ The fastest way to add support for reordering for all items is to use a `Automat
 ### Example 6 (Reorderable Automatic Animated List View)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -906,12 +1030,15 @@ class _BodyState extends State<Body> {
       child: AutomaticAnimatedListView<ItemData>(
         list: currentList,
         comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.color == b.color && a.fixedHeight == b.fixedHeight),
+          sameItem: (a, b) => a.id == b.id,
+          sameContent: (a, b) =>
+              a.color == b.color && a.fixedHeight == b.fixedHeight,
+        ),
         itemBuilder: (context, item, data) => data.measuring
             ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
+                margin: EdgeInsets.all(5),
+                height: item.fixedHeight ?? 60,
+              )
             : Item(data: item),
         listController: controller,
         addLongPressReorderable: true,
@@ -925,25 +1052,26 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () => gkey.currentState?.swapList(),
+      child: AnimatedContainer(
+        height: data.fixedHeight ?? 60,
+        duration: const Duration(milliseconds: 500),
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(
+          child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
   }
 }
 
@@ -960,14 +1088,14 @@ List<ItemData> listA = [
   ItemData(3),
   ItemData(4),
   ItemData(5),
-  ItemData(8, Colors.green)
+  ItemData(8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData(2),
   ItemData(6),
   ItemData(5, Colors.pink, 100),
   ItemData(7),
-  ItemData(8, Colors.yellowAccent)
+  ItemData(8, Colors.yellowAccent),
 ];
 
 final scrollController = ScrollController();
@@ -993,35 +1121,41 @@ For more details about the model read the documentation of the `AnimatedListBase
 ```dart
 import 'dart:math';
 
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(
           floatingActionButton: FloatingActionButton.extended(
-              label: Text('Random Change'), onPressed: randomChange),
+            label: Text('Random Change'),
+            onPressed: randomChange,
+          ),
           body: Body(),
-        )));
+        ),
+      ),
+    );
   }
 }
 
 class Body extends StatelessWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1057,23 +1191,23 @@ class Body extends StatelessWidget {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        height: 60,
-        margin: EdgeInsets.all(5),
-        padding: EdgeInsets.all(15),
-        decoration: BoxDecoration(
-            color: kColors[data.color],
-            border: Border.all(color: Colors.black12, width: 0)),
-        child: Center(
-            child: Text(
-          'Item ${data.id}',
-          style: TextStyle(fontSize: 16),
-        )));
+      duration: const Duration(milliseconds: 500),
+      height: 60,
+      margin: EdgeInsets.all(5),
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: kColors[data.color],
+        border: Border.all(color: Colors.black12, width: 0),
+      ),
+      child: Center(
+        child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+      ),
+    );
   }
 }
 
@@ -1081,7 +1215,7 @@ final kColors = const <Color>[
   Colors.teal,
   Colors.lightGreen,
   Colors.redAccent,
-  Colors.pink
+  Colors.pink,
 ];
 
 class ItemData {
@@ -1092,7 +1226,7 @@ class ItemData {
 
 int id = 0;
 List<ItemData> list = [
-  for (var i = 1; i <= 10; i++) ItemData(++id, (id - 1) % 4)
+  for (var i = 1; i <= 10; i++) ItemData(++id, (id - 1) % 4),
 ];
 
 var r = Random();
@@ -1105,8 +1239,11 @@ void randomChange() {
       final to = from + 1 + r.nextInt(list.length - from);
       final subList = list.sublist(from, to);
       list.removeRange(from, to);
-      controller.notifyRemovedRange(from, to - from,
-          (context, index, data) => Item(data: subList[index]));
+      controller.notifyRemovedRange(
+        from,
+        to - from,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
     case 1: // insert
       final from = r.nextInt(list.length + 1);
@@ -1119,10 +1256,15 @@ void randomChange() {
       final to = from + 1 + r.nextInt(list.length - from);
       final count = 1 + r.nextInt(5);
       final subList = list.sublist(from, to);
-      list.replaceRange(
-          from, to, [for (var i = 0; i < count; i++) ItemData(++id)]);
-      controller.notifyReplacedRange(from, to - from, count,
-          (context, index, data) => Item(data: subList[index]));
+      list.replaceRange(from, to, [
+        for (var i = 0; i < count; i++) ItemData(++id),
+      ]);
+      controller.notifyReplacedRange(
+        from,
+        to - from,
+        count,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
     case 3: // change
       final from = r.nextInt(list.length);
@@ -1130,10 +1272,13 @@ void randomChange() {
       final subList = list.sublist(from, to);
       list.replaceRange(from, to, [
         for (var i = 0; i < to - from; i++)
-          ItemData(subList[i].id, subList[i].color + 1)
+          ItemData(subList[i].id, subList[i].color + 1),
       ]);
-      controller.notifyChangedRange(from, to - from,
-          (context, index, data) => Item(data: subList[index]));
+      controller.notifyChangedRange(
+        from,
+        to - from,
+        (context, index, data) => Item(data: subList[index]),
+      );
       break;
   }
 }
@@ -1151,36 +1296,38 @@ Finally, to finish the reordering you have to call the `notifyStopReorder` metho
 ### Example 8 (Reorderable Automatic Animated List View with a handle)
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(
+        child: Scaffold(body: Body(key: gkey)),
+      ),
+    );
   }
 }
 
 class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -1209,12 +1356,15 @@ class _BodyState extends State<Body> {
       child: AutomaticAnimatedListView<ItemData>(
         list: currentList,
         comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.color == b.color && a.fixedHeight == b.fixedHeight),
+          sameItem: (a, b) => a.id == b.id,
+          sameContent: (a, b) =>
+              a.color == b.color && a.fixedHeight == b.fixedHeight,
+        ),
         itemBuilder: (context, item, data) => data.measuring
             ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
+                margin: EdgeInsets.all(5),
+                height: item.fixedHeight ?? 60,
+              )
             : Item(data: item),
         listController: controller,
         reorderModel: AutomaticAnimatedListReorderModel(currentList),
@@ -1228,45 +1378,54 @@ class _BodyState extends State<Body> {
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
+    return Row(
+      children: [
+        Expanded(
           child: GestureDetector(
-              onTap: () => gkey.currentState?.swapList(),
-              child: AnimatedContainer(
-                  height: data.fixedHeight ?? 60,
-                  duration: const Duration(milliseconds: 500),
-                  margin: EdgeInsets.all(5),
-                  padding: EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                      color: data.color,
-                      border: Border.all(color: Colors.black12, width: 0)),
-                  child: Center(
-                      child: Text(
-                    'Item ${data.id}',
-                    style: TextStyle(fontSize: 16),
-                  ))))),
-      GestureDetector(
-        onVerticalDragStart: (dd) {
-          controller.notifyStartReorder(
-              context, dd.localPosition.dx, dd.localPosition.dy);
-        },
-        onVerticalDragUpdate: (dd) {
-          controller.notifyUpdateReorder(
-              dd.localPosition.dx, dd.localPosition.dy);
-        },
-        onVerticalDragEnd: (dd) {
-          controller.notifyStopReorder(false);
-        },
-        onVerticalDragCancel: () {
-          controller.notifyStopReorder(true);
-        },
-        child: Icon(Icons.drag_handle),
-      )
-    ]);
+            onTap: () => gkey.currentState?.swapList(),
+            child: AnimatedContainer(
+              height: data.fixedHeight ?? 60,
+              duration: const Duration(milliseconds: 500),
+              margin: EdgeInsets.all(5),
+              padding: EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: data.color,
+                border: Border.all(color: Colors.black12, width: 0),
+              ),
+              child: Center(
+                child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ),
+        ),
+        GestureDetector(
+          onVerticalDragStart: (dd) {
+            controller.notifyStartReorder(
+              context,
+              dd.localPosition.dx,
+              dd.localPosition.dy,
+            );
+          },
+          onVerticalDragUpdate: (dd) {
+            controller.notifyUpdateReorder(
+              dd.localPosition.dx,
+              dd.localPosition.dy,
+            );
+          },
+          onVerticalDragEnd: (dd) {
+            controller.notifyStopReorder(false);
+          },
+          onVerticalDragCancel: () {
+            controller.notifyStopReorder(true);
+          },
+          child: Icon(Icons.drag_handle),
+        ),
+      ],
+    );
   }
 }
 
@@ -1283,14 +1442,14 @@ List<ItemData> listA = [
   ItemData(3),
   ItemData(4),
   ItemData(5),
-  ItemData(8, Colors.green)
+  ItemData(8, Colors.green),
 ];
 List<ItemData> listB = [
   ItemData(2),
   ItemData(6),
   ItemData(5, Colors.pink, 100),
   ItemData(7),
-  ItemData(8, Colors.yellowAccent)
+  ItemData(8, Colors.yellowAccent),
 ];
 
 final scrollController = ScrollController();
@@ -1335,10 +1494,10 @@ This adapter works well also with a normal `ListView`. However, the adapter also
 ```dart
 import 'dart:math';
 
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
-import 'package:great_list_view/tree_list_adapter.dart';
-import 'package:great_list_view/other_widgets.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
+import 'package:great_list_view_plus/tree_list_adapter.dart';
+import 'package:great_list_view_plus/other_widgets.dart';
 
 void main() {
   buildTree(rnd, root, 5, 3);
@@ -1347,25 +1506,27 @@ void main() {
 }
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
-  _AppState createState() => _AppState();
+  State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(child: Scaffold(body: Body())),
+    );
   }
 }
 
 class Body extends StatefulWidget {
+  const Body({super.key});
+
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
@@ -1382,9 +1543,14 @@ class _BodyState extends State<Body> {
           var node = adapter.indexToNode(index);
           if (!adapter.isLeaf(node) && adapter.isNodeExpanded(node)) {
             // cannot reorder an open node! the long click must first collapse it
-            adapter.notifyNodeCollapsing(node, () {
-              collapsedMap.add(node);
-            }, index: index, updateNode: true);
+            adapter.notifyNodeCollapsing(
+              node,
+              () {
+                collapsedMap.add(node);
+              },
+              index: index,
+              updateNode: true,
+            );
             return false;
           }
           return true;
@@ -1439,15 +1605,15 @@ class TreeNode extends StatelessWidget {
   final void Function(bool expanded) onExpandCollapseTap;
   final void Function() onRemoveTap;
   final void Function() onInsertTap;
-  TreeNode({
-    Key? key,
+  const TreeNode({
+    super.key,
     required this.node,
     required this.level,
     required this.expanded,
     required this.onExpandCollapseTap,
     required this.onRemoveTap,
     required this.onInsertTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1465,42 +1631,54 @@ class TreeNode extends StatelessWidget {
 
   Widget _buildAddRemoveButtons() {
     return SizedBox(
-        width: 40,
-        child: Row(
-          children: [
-            _buildIconButton(Colors.red, const Icon(Icons.remove), onRemoveTap),
-            _buildIconButton(Colors.green, const Icon(Icons.add), onInsertTap),
-          ],
-        ));
+      width: 40,
+      child: Row(
+        children: [
+          _buildIconButton(Colors.red, const Icon(Icons.remove), onRemoveTap),
+          _buildIconButton(Colors.green, const Icon(Icons.add), onInsertTap),
+        ],
+      ),
+    );
   }
 
   Widget? _buildExpandCollapseArrowButton() {
     if (expanded == null) return null;
     return ArrowButton(
-        expanded: expanded!,
-        turns: 0.25,
-        icon: const Icon(Icons.keyboard_arrow_right),
-        duration: const Duration(milliseconds: 500),
-        onTap: onExpandCollapseTap);
+      expanded: expanded!,
+      turns: 0.25,
+      icon: const Icon(Icons.keyboard_arrow_right),
+      duration: const Duration(milliseconds: 500),
+      onTap: onExpandCollapseTap,
+    );
   }
 
   static Widget _buildIconButton(
-      Color color, Icon icon, void Function() onPressed) {
+    Color color,
+    Icon icon,
+    void Function() onPressed,
+  ) {
     return DecoratedBox(
-        decoration: BoxDecoration(border: Border.all(color: color, width: 2)),
-        child: SizedBox(
-            width: 20,
-            height: 25,
-            child: IconButton(
-                padding: EdgeInsets.all(0.0),
-                iconSize: 15,
-                icon: icon,
-                onPressed: onPressed)));
+      decoration: BoxDecoration(border: Border.all(color: color, width: 2)),
+      child: SizedBox(
+        width: 20,
+        height: 25,
+        child: IconButton(
+          padding: EdgeInsets.all(0.0),
+          iconSize: 15,
+          icon: icon,
+          onPressed: onPressed,
+        ),
+      ),
+    );
   }
 }
 
-Widget itemBuilder(BuildContext context, TreeListAdapter<NodeData> adapter,
-    int index, AnimatedWidgetBuilderData data) {
+Widget itemBuilder(
+  BuildContext context,
+  TreeListAdapter<NodeData> adapter,
+  int index,
+  AnimatedWidgetBuilderData data,
+) {
   final node = adapter.indexToNode(index);
   return TreeNode(
     node: node,
@@ -1575,7 +1753,7 @@ const List<String> kNames = [
   'Mason',
   'Harper',
   'Ethan',
-  'Evelyn'
+  'Evelyn',
 ];
 
 final root = NodeData('Me');
@@ -1598,29 +1776,29 @@ the `initialScrollOffsetCallback` attribute of the `AnimatedSliverChildDelegate`
 ```dart
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
-import 'package:great_list_view/great_list_view.dart';
+import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-void main() {
-  Executor().warmUp();
+Future<void> main() async {
+  await Executor().warmUp();
   runApp(App());
 }
 
 class App extends StatelessWidget {
+  const App({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(),
-        )));
+      title: 'great_list_view_plus example',
+      home: SafeArea(child: Scaffold(body: Body())),
+    );
   }
 }
 
 class Body extends StatelessWidget {
-  Body({Key? key}) : super(key: key);
+  const Body({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1630,19 +1808,24 @@ class Body extends StatelessWidget {
         list: myList,
         listController: controller,
         comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.color == b.color && a.fixedHeight == b.fixedHeight),
+          sameItem: (a, b) => a.id == b.id,
+          sameContent: (a, b) =>
+              a.color == b.color && a.fixedHeight == b.fixedHeight,
+        ),
         itemBuilder: (context, item, data) => data.measuring
             ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
+                margin: EdgeInsets.all(5),
+                height: item.fixedHeight ?? 60,
+              )
             : Item(data: item),
         initialScrollOffsetCallback: (c) {
           final i = rnd.nextInt(myList.length);
           final box = controller.computeItemBox(i, true)!;
-          print('scrolled to item ${myList[i]}');
+          debugPrint('scrolled to item ${myList[i]}');
           return max(
-              0.0, box.top - (c.viewportMainAxisExtent - box.height) / 2.0);
+            0.0,
+            box.top - (c.viewportMainAxisExtent - box.height) / 2.0,
+          );
         },
         scrollController: scrollController,
       ),
@@ -1655,37 +1838,40 @@ final rnd = Random();
 class Item extends StatelessWidget {
   final ItemData data;
 
-  const Item({Key? key, required this.data}) : super(key: key);
+  const Item({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () {
-          final listIndex = rnd.nextInt(myList.length);
-          final box = controller.computeItemBox(listIndex, true);
-          if (box == null) return;
-          print('scrolled to item ${myList[listIndex]}');
-          final c = context
-              .findAncestorRenderObjectOfType<RenderSliver>()!
-              .constraints;
-          final r = box.top - (c.viewportMainAxisExtent - box.height) / 2.0;
-          scrollController.animateTo(r,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeIn);
-        },
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
+      onTap: () {
+        final listIndex = rnd.nextInt(myList.length);
+        final box = controller.computeItemBox(listIndex, true);
+        if (box == null) return;
+        debugPrint('scrolled to item ${myList[listIndex]}');
+        final c = context
+            .findAncestorRenderObjectOfType<RenderSliver>()!
+            .constraints;
+        final r = box.top - (c.viewportMainAxisExtent - box.height) / 2.0;
+        scrollController.animateTo(
+          r,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeIn,
+        );
+      },
+      child: AnimatedContainer(
+        height: data.fixedHeight ?? 60,
+        duration: const Duration(milliseconds: 500),
+        margin: EdgeInsets.all(5),
+        padding: EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: data.color,
+          border: Border.all(color: Colors.black12, width: 0),
+        ),
+        child: Center(
+          child: Text('Item ${data.id}', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
   }
 }
 
@@ -1710,9 +1896,3 @@ List<ItemData> myList = [
 final scrollController = ScrollController();
 final controller = AnimatedListController();
 ```
-
-<b>
-Anyone who likes this library can support me by making a donation at will. This will definitely motivate me and push me to bring this library to its completion. I will greatly appreciate your contribution.
-</b>
-
-[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/donate?hosted_button_id=EJLUKSHKXMTNQ)

@@ -1,0 +1,10 @@
+# Keep demo media in Git; README uses remote image URLs.
+/images/
+
+# Generated output and local reports (dot directories are excluded by Pub).
+build/
+coverage/
+test-results/
+**/doc/api/
+**/pubspec.lock
+*.log

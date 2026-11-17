@@ -4,16 +4,20 @@ import 'dart:math' as math;
 
 import 'package:diffutil_dart/diffutil.dart';
 import 'package:flutter/widgets.dart';
-import 'package:great_list_view/great_list_view.dart'
+import 'package:great_list_view_plus/great_list_view_plus.dart'
     show AnimatedListController, AnimatedWidgetBuilderData;
 import 'package:worker_manager/worker_manager.dart';
 
-part 'package:great_list_view/src/moved_array.dart';
+part 'package:great_list_view_plus/src/moved_array.dart';
 
 const int kSpawnNewIsolateCount = 500;
 
 typedef AnimatedListDiffBuilder<T> = Widget Function(
-    BuildContext context, T list, int index, AnimatedWidgetBuilderData data);
+  BuildContext context,
+  T list,
+  int index,
+  AnimatedWidgetBuilderData data,
+);
 
 /// A derivated version of this class has to be implemented to tell [AnimatedListDiffDispatcher]
 /// how to compare items of two lists in order to dispatch the differences
@@ -39,13 +43,10 @@ abstract class AnimatedListDiffBaseComparator<T> {
 /// you are bored of creating a new derivated class.
 class AnimatedListDiffComparator<T> extends AnimatedListDiffBaseComparator<T> {
   const AnimatedListDiffComparator({
-    required bool Function(T listA, int indexA, T listB, int indexB) sameItem,
-    required bool Function(T listA, int indexA, T listB, int indexB)
-        sameContent,
-    required int Function(T list) lengthOf,
-  })  : _sameItem = sameItem,
-        _sameContent = sameContent,
-        _lengthOf = lengthOf;
+    required this._sameItem,
+    required this._sameContent,
+    required this._lengthOf,
+  });
 
   final bool Function(T listA, int indexA, T listB, int indexB) _sameItem;
   final bool Function(T listA, int indexA, T listB, int indexB) _sameContent;
@@ -74,13 +75,13 @@ class AnimatedListDiffComparator<T> extends AnimatedListDiffBaseComparator<T> {
 /// and [AnimatedListController.notifyRemovedRange] methods).
 /// The two lists are compared using the [comparator] provided.
 class AnimatedListDiffDispatcher<T> {
-  AnimatedListDiffDispatcher(
-      {required T initialList,
-      required this.controller,
-      required this.builder,
-      required this.comparator,
-      this.spawnNewInsolateCount = kSpawnNewIsolateCount})
-      : _currentList = initialList;
+  AnimatedListDiffDispatcher({
+    required T initialList,
+    required this.controller,
+    required this.builder,
+    required this.comparator,
+    this.spawnNewInsolateCount = kSpawnNewIsolateCount,
+  }) : _currentList = initialList;
 
   final AnimatedListController controller;
   final AnimatedListDiffBuilder<T> builder;
@@ -109,15 +110,19 @@ class AnimatedListDiffDispatcher<T> {
     }
 
     _oldList = _currentList;
-    _currentList = _processingList!;
+    _currentList = _processingList as T;
     _processingList = null;
 
-    final oldList = _oldList!;
+    final oldList = _oldList as T;
 
     final cl = _ChangeList(comparator.lengthOf(oldList));
 
-    Widget callOldListBuilder(List<_MovedRange> l, int index,
-        BuildContext context, AnimatedWidgetBuilderData data) {
+    Widget callOldListBuilder(
+      List<_MovedRange> l,
+      int index,
+      BuildContext context,
+      AnimatedWidgetBuilderData data,
+    ) {
       int? oldIndex;
       var i = index;
       for (final e in l) {
@@ -140,8 +145,11 @@ class AnimatedListDiffDispatcher<T> {
         onChange: (position, count) {
           final l = cl.apply(position, count)!;
           assert(l.isNotEmpty);
-          controller.notifyChangedRange(position, count,
-              (context, index, data) {
+          controller.notifyChangedRange(position, count, (
+            context,
+            index,
+            data,
+          ) {
             return callOldListBuilder(l, index, context, data);
           });
           cl.replaceOrChange(position, count, count);
@@ -149,8 +157,11 @@ class AnimatedListDiffDispatcher<T> {
         onRemove: (position, count) {
           final l = cl.apply(position, count)!;
           assert(l.isNotEmpty);
-          controller.notifyRemovedRange(position, count,
-              (context, index, data) {
+          controller.notifyRemovedRange(position, count, (
+            context,
+            index,
+            data,
+          ) {
             return callOldListBuilder(l, index, context, data);
           });
           cl.replaceOrChange(position, count, 0);
@@ -158,8 +169,11 @@ class AnimatedListDiffDispatcher<T> {
         onReplace: (position, removeCount, insertCount) {
           final l = cl.apply(position, removeCount)!;
           assert(l.isNotEmpty);
-          controller.notifyReplacedRange(position, removeCount, insertCount,
-              (context, index, data) {
+          controller.notifyReplacedRange(position, removeCount, insertCount, (
+            context,
+            index,
+            data,
+          ) {
             return callOldListBuilder(l, index, context, data);
           });
           cl.replaceOrChange(position, removeCount, insertCount);
@@ -181,7 +195,10 @@ class AnimatedListDiffDispatcher<T> {
   T get currentList => _currentList;
 
   FutureOr<_DiffResultDispatcher> _computeDiffs(
-      final T oldList, final T newList, bool detectMoves) {
+    T oldList,
+    T newList,
+    bool detectMoves,
+  ) {
     if (_cancelable != null) {
       _cancelable!.cancel();
       _cancelable = null;
@@ -190,17 +207,25 @@ class AnimatedListDiffDispatcher<T> {
     if (comparator.lengthOf(oldList) + comparator.lengthOf(newList) >=
         spawnNewInsolateCount) {
       final completer = Completer<_DiffResultDispatcher>();
-      _cancelable = Executor().execute<T, T, AnimatedListDiffBaseComparator<T>,
-              bool, _DiffResultDispatcher, dynamic>(
-          arg1: oldList,
-          arg2: newList,
-          arg3: comparator,
-          arg4: detectMoves,
-          fun4: _calculateDiff)
-        ..then((value) {
-          _cancelable = null;
-          completer.complete(value);
-        }).catchError((dynamic e) {});
+      _cancelable =
+          Executor().execute<
+              T,
+              T,
+              AnimatedListDiffBaseComparator<T>,
+              bool,
+              _DiffResultDispatcher,
+              dynamic
+            >(
+              arg1: oldList,
+              arg2: newList,
+              arg3: comparator,
+              arg4: detectMoves,
+              fun4: _calculateDiff,
+            )
+            ..then((value) {
+              _cancelable = null;
+              completer.complete(value);
+            }).catchError((dynamic e) {});
       return completer.future;
     } else {
       return _calculateDiff(oldList, newList, comparator, detectMoves);
@@ -216,19 +241,25 @@ class AnimatedListDiffDispatcher<T> {
   }
 }
 
-_DiffResultDispatcher _calculateDiff<T>(T oldList, T newList,
-    AnimatedListDiffBaseComparator<T> comparator, bool detectMoves,
-    [TypeSendPort<dynamic>? port]) {
-  return _DiffResultDispatcher(calculateDiff<T>(
-    _DiffDelegate<T>(
-      oldList,
-      newList,
-      comparator.sameContent,
-      comparator.sameItem,
-      comparator.lengthOf,
+_DiffResultDispatcher _calculateDiff<T>(
+  T oldList,
+  T newList,
+  AnimatedListDiffBaseComparator<T> comparator,
+  bool detectMoves, [
+  TypeSendPort<dynamic>? port,
+]) {
+  return _DiffResultDispatcher(
+    calculateDiff<T>(
+      _DiffDelegate<T>(
+        oldList,
+        newList,
+        comparator.sameContent,
+        comparator.sameItem,
+        comparator.lengthOf,
+      ),
+      detectMoves: detectMoves,
     ),
-    detectMoves: detectMoves,
-  ));
+  );
 }
 
 class _DiffDelegate<T> implements DiffDelegate {
@@ -238,19 +269,32 @@ class _DiffDelegate<T> implements DiffDelegate {
   final bool Function(T, int, T, int) _areItemsTheSame;
   final int Function(T) _listLength;
 
-  const _DiffDelegate(this.oldList, this.newList, this._areContentsTheSame,
-      this._areItemsTheSame, this._listLength);
+  const _DiffDelegate(
+    this.oldList,
+    this.newList,
+    this._areContentsTheSame,
+    this._areItemsTheSame,
+    this._listLength,
+  );
 
   @override
   bool areContentsTheSame(int oldItemPosition, int newItemPosition) {
     return _areContentsTheSame.call(
-        oldList, oldItemPosition, newList, newItemPosition);
+      oldList,
+      oldItemPosition,
+      newList,
+      newItemPosition,
+    );
   }
 
   @override
   bool areItemsTheSame(int oldItemPosition, int newItemPosition) {
     return _areItemsTheSame.call(
-        oldList, oldItemPosition, newList, newItemPosition);
+      oldList,
+      oldItemPosition,
+      newList,
+      newItemPosition,
+    );
   }
 
   @override
@@ -265,20 +309,15 @@ class _DiffDelegate<T> implements DiffDelegate {
   int getOldListSize() => _listLength(oldList);
 }
 
-enum _OperationType {
-  INSERT,
-  REMOVE,
-  REPLACE,
-  CHANGE,
-  MOVE,
-}
+enum _OperationType { insert, remove, replace, change, move }
 
 class _Operation {
-  const _Operation(
-      {required this.type,
-      required this.data1,
-      required this.data2,
-      this.data3});
+  const _Operation({
+    required this.type,
+    required this.data1,
+    required this.data2,
+    this.data3,
+  });
 
   final _OperationType type;
   final int data1, data2;
@@ -286,24 +325,24 @@ class _Operation {
 
   String get typeToString {
     switch (type) {
-      case _OperationType.INSERT:
+      case _OperationType.insert:
         return 'INS';
-      case _OperationType.REMOVE:
+      case _OperationType.remove:
         return 'REM';
-      case _OperationType.REPLACE:
+      case _OperationType.replace:
         return 'REP';
-      case _OperationType.CHANGE:
+      case _OperationType.change:
         return 'CHG';
-      case _OperationType.MOVE:
+      case _OperationType.move:
         return 'MOV';
     }
   }
 
   @override
   String toString() {
-    if (type == _OperationType.REPLACE) {
+    if (type == _OperationType.replace) {
       return '$typeToString $data1 ($data2,$data3)';
-    } else if (type == _OperationType.MOVE) {
+    } else if (type == _OperationType.move) {
       return '$typeToString $data1 -> $data2 ($data3)';
     } else {
       return '$typeToString $data1 ($data2)';
@@ -312,7 +351,7 @@ class _Operation {
 }
 
 class _DiffResultDispatcher {
-  _DiffResultDispatcher(final DiffResult diffResult) {
+  _DiffResultDispatcher(DiffResult diffResult) {
     var upd = diffResult.getUpdates(batch: false);
     for (final u in upd) {
       u.when(
@@ -328,16 +367,24 @@ class _DiffResultDispatcher {
         },
         insert: (position, count) {
           if (position == _removedPosition) {
-            _list.add(_Operation(
-                type: _OperationType.REPLACE,
+            _list.add(
+              _Operation(
+                type: _OperationType.replace,
                 data1: position,
                 data2: _removedCount,
-                data3: count));
+                data3: count,
+              ),
+            );
             _removedPosition = null;
           } else {
             _pushPendings();
-            _list.add(_Operation(
-                type: _OperationType.INSERT, data1: position, data2: count));
+            _list.add(
+              _Operation(
+                type: _OperationType.insert,
+                data1: position,
+                data2: count,
+              ),
+            );
           }
         },
         remove: (position, count) {
@@ -373,50 +420,60 @@ class _DiffResultDispatcher {
 
   void _pushPendings() {
     if (_removedPosition != null) {
-      _list.add(_Operation(
-          type: _OperationType.REMOVE,
+      _list.add(
+        _Operation(
+          type: _OperationType.remove,
           data1: _removedPosition!,
-          data2: _removedCount));
+          data2: _removedCount,
+        ),
+      );
       _removedPosition = null;
     } else if (_changedPosition != null) {
-      _list.add(_Operation(
-          type: _OperationType.CHANGE,
+      _list.add(
+        _Operation(
+          type: _OperationType.change,
           data1: _changedPosition! - _changedCount + 1,
-          data2: _changedCount));
+          data2: _changedCount,
+        ),
+      );
       _changedPosition = null;
     } else if (_movedFrom != null) {
-      _list.add(_Operation(
-          type: _OperationType.MOVE,
+      _list.add(
+        _Operation(
+          type: _OperationType.move,
           data1: (_movedFrom! < _movedTo
               ? _movedFrom!
               : _movedFrom! - _movedCount + 1),
           data2: _movedTo,
-          data3: _movedCount));
+          data3: _movedCount,
+        ),
+      );
       _movedFrom = null;
     }
   }
 
-  void _dispatchUpdatesTo(
-      {void Function(int position, int count)? onInsert,
-      void Function(int position, int count)? onRemove,
-      void Function(int position, int removeCount, int insertCount)? onReplace,
-      void Function(int position, int count)? onChange,
-      void Function(int position, int toPosition, int count)? onMove}) {
+  void _dispatchUpdatesTo({
+    void Function(int position, int count)? onInsert,
+    void Function(int position, int count)? onRemove,
+    void Function(int position, int removeCount, int insertCount)? onReplace,
+    void Function(int position, int count)? onChange,
+    void Function(int position, int toPosition, int count)? onMove,
+  }) {
     for (final op in _list) {
       switch (op.type) {
-        case _OperationType.INSERT:
+        case _OperationType.insert:
           onInsert?.call(op.data1, op.data2);
           break;
-        case _OperationType.REMOVE:
+        case _OperationType.remove:
           onRemove?.call(op.data1, op.data2);
           break;
-        case _OperationType.REPLACE:
+        case _OperationType.replace:
           onReplace?.call(op.data1, op.data2, op.data3!);
           break;
-        case _OperationType.CHANGE:
+        case _OperationType.change:
           onChange?.call(op.data1, op.data2);
           break;
-        case _OperationType.MOVE:
+        case _OperationType.move:
           onMove?.call(op.data1, op.data2, op.data3!);
           break;
       }
@@ -430,7 +487,10 @@ class _DiffResultDispatcher {
 //
 
 typedef AnimatedListDiffListBuilder<T> = Widget Function(
-    BuildContext context, T element, AnimatedWidgetBuilderData data);
+  BuildContext context,
+  T element,
+  AnimatedWidgetBuilderData data,
+);
 
 /// This class extends [AnimatedListDiffListBaseComparator] in order to handle easier
 /// the simplified version with [List]s objects.
@@ -445,10 +505,9 @@ abstract class AnimatedListDiffListBaseComparator<T> {
 class AnimatedListDiffListComparator<T>
     extends AnimatedListDiffListBaseComparator<T> {
   const AnimatedListDiffListComparator({
-    required bool Function(T elementA, T elementB) sameItem,
-    required bool Function(T elementA, T elementB) sameContent,
-  })  : _sameItem = sameItem,
-        _sameContent = sameContent;
+    required this._sameItem,
+    required this._sameContent,
+  });
 
   final bool Function(T elementA, T elementB) _sameItem;
   final bool Function(T elementA, T elementB) _sameContent;
@@ -470,21 +529,22 @@ class AnimatedListDiffListComparator<T>
 /// the simplified version with [List]s objects.
 class AnimatedListDiffListDispatcher<T>
     extends AnimatedListDiffDispatcher<List<T>> {
-  AnimatedListDiffListDispatcher(
-      {required AnimatedListController controller,
-      required AnimatedListDiffListBuilder<T> itemBuilder,
-      required List<T> currentList,
-      required AnimatedListDiffListBaseComparator<T> comparator,
-      int spawnNewInsolateCount = kSpawnNewIsolateCount})
-      : super(
-          controller: controller,
-          initialList: currentList,
-          builder: (BuildContext context, List<T> list, int index,
-                  AnimatedWidgetBuilderData data) =>
-              itemBuilder.call(context, list[index], data),
-          comparator: _ListDiffComparator<T>(comparator),
-          spawnNewInsolateCount: spawnNewInsolateCount,
-        );
+  AnimatedListDiffListDispatcher({
+    required super.controller,
+    required AnimatedListDiffListBuilder<T> itemBuilder,
+    required List<T> currentList,
+    required AnimatedListDiffListBaseComparator<T> comparator,
+    super.spawnNewInsolateCount,
+  }) : super(
+         initialList: currentList,
+         builder: (
+           BuildContext context,
+           List<T> list,
+           int index,
+           AnimatedWidgetBuilderData data,
+         ) => itemBuilder.call(context, list[index], data),
+         comparator: _ListDiffComparator<T>(comparator),
+       );
 }
 
 class _ListDiffComparator<T> extends AnimatedListDiffBaseComparator<List<T>> {
@@ -548,32 +608,17 @@ class _ChangeList {
         nr = _Range(from, remove, insert);
       }
       ranges.insert(i, nr);
-      // _merge();
     }
 
-    final movedResults =
-        movedArray.dataReplaceOrChange(from, removeCount, insertCount);
+    final movedResults = movedArray.dataReplaceOrChange(
+      from,
+      removeCount,
+      insertCount,
+    );
     for (final r in movedResults) {
       fn(r.from, r.length, r.count);
     }
   }
-
-  // void _merge() {
-  //   int i = 0;
-  //   _Range? p, r;
-  //   for (; i < ranges.length; i++) {
-  //     r = ranges[i];
-  //     if (p != null) {
-  //       if (p.from + p.remove >= r.from) {
-  //         var nr = _Range(p.from, p.remove + r.remove, p.insert + r.insert);
-  //         ranges.replaceRange(i - 1, i + 1, [nr]);
-  //         i--;
-  //         r = nr;
-  //       }
-  //     }
-  //     p = r;
-  //   }
-  // }
 
   List<_MovedRange>? apply(int from, int count) {
     List<_MovedRange>? list;

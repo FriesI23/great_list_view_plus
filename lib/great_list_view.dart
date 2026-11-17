@@ -1,5 +1,4 @@
-library great_list_view;
+/// Compatibility entry point within the great_list_view_plus package.
+library;
 
-export 'package:great_list_view/src/core.dart';
-export 'package:great_list_view/src/dispatcher.dart';
-export 'package:worker_manager/worker_manager.dart';
+export 'great_list_view_plus.dart';

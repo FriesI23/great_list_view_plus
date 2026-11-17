@@ -1,6 +1,6 @@
-library other_widgets;
+library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Animated arrow button.
 class ArrowButton extends StatefulWidget {
@@ -11,18 +11,18 @@ class ArrowButton extends StatefulWidget {
   final Icon icon;
   final double turns;
 
-  ArrowButton({
-    Key? key,
+  const ArrowButton({
+    super.key,
     this.expanded = false,
     this.onTap,
     this.curve = Curves.fastOutSlowIn,
     this.duration = const Duration(milliseconds: 300),
     this.icon = const Icon(Icons.keyboard_arrow_down),
     this.turns = 0.5,
-  }) : super(key: key);
+  });
 
   @override
-  _ArrowButtonState createState() => _ArrowButtonState();
+  State<ArrowButton> createState() => _ArrowButtonState();
 }
 
 class _ArrowButtonState extends State<ArrowButton>
@@ -64,8 +64,10 @@ class _ArrowButtonState extends State<ArrowButton>
 
   void _initAnimation() {
     _controller = AnimationController(vsync: this, duration: widget.duration);
-    Animation<double> curve =
-        CurvedAnimation(parent: _controller!, curve: widget.curve);
+    Animation<double> curve = CurvedAnimation(
+      parent: _controller!,
+      curve: widget.curve,
+    );
     _animation = Tween(begin: 0.0, end: widget.turns).animate(curve);
     if (_expanded) _controller!.value = 1.0;
   }
@@ -86,10 +88,7 @@ class _ArrowButtonState extends State<ArrowButton>
           if (widget.onTap != null) widget.onTap!(_expanded);
         });
       },
-      icon: RotationTransition(
-        turns: _animation,
-        child: widget.icon,
-      ),
+      icon: RotationTransition(turns: _animation, child: widget.icon),
     );
   }
 }

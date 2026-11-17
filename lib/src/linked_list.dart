@@ -1,6 +1,6 @@
 part of 'core.dart';
 
-class _NodePointers<T> {
+mixin class _NodePointers<T> {
   _NodePointers<T>? _next, _prev;
 }
 
@@ -77,16 +77,6 @@ class _LinkedList<T extends _LinkedNode<T>> extends Iterable<T> {
     _tail._prev = newNode;
     newNode._list = this;
   }
-
-  // void _addFirst(MyLinkedNode<T> newNode) {
-  //   assert(newNode._list == null);
-  //   final n = _head._next;
-  //   n!._prev = newNode;
-  //   newNode._next = n;
-  //   newNode._prev = _head;
-  //   _head._next = newNode;
-  //   newNode._list = this;
-  // }
 
   @override
   Iterator<T> get iterator => _LinkedListIterator<T>(this);
