@@ -60,3 +60,24 @@ library development files. See [Flutter platform setup](https://docs.flutter.dev
 Use `--release` instead of `--debug` for local release builds. Android release
 builds use the template's debug signing configuration for demonstration;
 publishing an app requires your own identity and signing configuration.
+
+## README recordings
+
+The README gallery is rendered from this app with scripted widget gestures.
+It records automatic/manual/sliver list updates, drag handles, and tree editing
+and cross-parent moves. These recordings show the Flutter UI; they do not
+represent native device acceptance tests.
+
+Install the WebP tools (`brew install webp` on macOS), then run from the
+repository root:
+
+```sh
+make bootstrap
+make capture-demos
+```
+
+The command requires Bash and `img2webp`. It loads real app fonts, captures a
+1100 x 900 light canvas at 83 ms intervals, and writes looping 880 x 720 WebP
+animations to `images/list.webp` and `images/tree.webp`. Intermediate PNG frames
+stay in `build/example-demos/`, which is ignored by Git. The gallery media stays
+in Git and is excluded from the published package.

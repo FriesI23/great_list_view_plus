@@ -1,129 +1,154 @@
 # great_list_view_plus
 
-## Overview
+![Package][pubdev-package]
+![Likes][pubdev-likes]
+![Points][pubdev-points]
 
-A Flutter package that includes a powerful, animated and reorderable list view. Just notify the list view of changes in your underlying list and the list view will automatically animate. You can also change the entire list and automatically dispatch the differences detected by the Myers algorithm.
-You can also reorder the items of your list, by simply long-tapping the item you want to move or otherwise, for example via a drag handle.
+Animated and reorderable Flutter lists with automatic diff updates and a tree
+adapter.
 
-Compared to the `AnimatedList`, `ReorderableListView` material widgets or other third-party libraries, this library offers:
+A maintained fork of [great_list_view 0.2.3](https://github.com/DavideBelsole/great_list_view)
+by Davide Belsole, distributed under the original MIT license.
 
-- it can be both animated and reordered at the same time;
-- it works without necessarily specifying a `List` object, but simply using index-based `builder` callbacks;
-- all changes to list view items are gathered and grouped into intervals, so for example you can remove a whole interval of a thousand items with a single remove change without losing in performance;
-- it also works well even with a very long list;
-- the library doesn't use additional widget for items, like `Stack`, `Offstage` or `Overlay`.
-- it is not mandatory to provide a key for each item, because everything works using only indexes;
+## Features
 
-![Example 1](https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/example1.gif)
+- Animate insertions, removals, moves and content changes while supporting drag
+  reordering in the same list.
+- Replace a list and let the Myers diff algorithm dispatch updates, or send
+  explicit controller notifications for individual items and ranges.
+- Build by index without requiring an underlying `List` or per-item keys.
+- Compose animated slivers with other slivers, including fixed-extent lists.
+- Turn callback-defined tree data into a linear list, with expansion, subtree
+  editing and cross-parent moves.
 
-This package also provides a tree adapter to create a tree view without defining a new widget for it, but simply by converting your tree data into a linear list view, animated or not. Your tree data can be any data type, just describe it using a model based on a bunch of callbacks.
+See the [runnable example](example/README.md) for the **List** and **Tree** tabs
+and their available controls.
 
-![Example 2](https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/example2.gif)
+## Example gallery
+
+Automatic updates, Morph transitions, drag handles, manual notifications and
+sliver composition:
+
+![List updates, reordering and slivers][list-demo]
+
+Tree expansion, node editing, cross-parent dragging and a plain ListView host:
+
+![Tree editing and cross-parent reordering][tree-demo]
 
 ## Requirements
 
 Requires **Flutter 3.47.0 / Dart 3.13.0 or newer**.
 Supports Android, iOS, macOS, Windows and Linux; web is not supported.
 
-This is a maintained fork of [great_list_view 0.2.3](https://github.com/DavideBelsole/great_list_view)
-by Davide Belsole, distributed under the original MIT license.
+Material components use `material_ui`. Host Material UI, themes and localization
+must use the same standalone package. Follow Flutter's
+[official migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui)
+when integrating it into your app.
 
-## Installation
+Current limitations: no separated-list constructor, incomplete list semantics
+support, and no infinite lists.
+
+## Getting started
+
+```sh
+flutter pub add great_list_view_plus
+```
+
+Or add the dependency to `pubspec.yaml`, then run `flutter pub get`:
 
 ```yaml
 dependencies:
   great_list_view_plus: ^0.3.0
 ```
 
+Import the single public entry point:
+
 ```dart
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 ```
 
-Use this single entry point instead of the previous list and auxiliary imports.
-`worker_manager` is no longer re-exported; declare it directly if your app uses it.
+This replaces the previous list and auxiliary imports. `worker_manager` is no
+longer re-exported; declare it directly if your application uses its API.
 
-## Optional initialization
+## Usage
 
-If the first large list update must respond quickly, call `GreatListView.init()`
-once before `runApp()`. By default background diffing starts when the old and new
-list lengths total at least 500. Without this call, workers start on demand.
+Pass a new list to `AutomaticAnimatedListView` to animate its differences. Keep
+previous lists and items unchanged so the comparator can compare old and new
+values correctly.
 
 ```dart
-Future<void> main() async {
-  await GreatListView.init(); // Optional, before the first large list diff.
-  runApp(const MyApp());
+import 'package:great_list_view_plus/great_list_view_plus.dart';
+import 'package:material_ui/material_ui.dart';
+
+void main() => runApp(const MaterialApp(home: ListExample()));
+
+class ListExample extends StatefulWidget {
+  const ListExample({super.key});
+
+  @override
+  State<ListExample> createState() => _ListExampleState();
+}
+
+class _ListExampleState extends State<ListExample> {
+  final _controller = AnimatedListController();
+  List<int> _items = const [1, 2, 3];
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Animated list')),
+    floatingActionButton: FloatingActionButton(
+      onPressed: () => setState(() {
+        _items = _items.contains(2) ? const [3, 1, 4] : const [1, 2, 3];
+      }),
+      child: const Icon(Icons.swap_horiz),
+    ),
+    body: AutomaticAnimatedListView<int>(
+      list: _items,
+      listController: _controller,
+      comparator: AnimatedListDiffListComparator<int>(
+        sameItem: (a, b) => a == b,
+        sameContent: (a, b) => a == b,
+      ),
+      detectMoves: true,
+      itemBuilder: (context, item, data) => data.measuring
+          ? const SizedBox(height: 56)
+          : SizedBox(height: 56, child: ListTile(title: Text('Item $item'))),
+    ),
+  );
 }
 ```
 
-## Standalone design packages
+`sameItem` compares identity; `sameContent` compares the content of matching
+items. When `data.measuring` is true, return a lightweight widget with the same
+final extent, without entry/exit animations. Content changes can use implicit
+animations or `MorphTransition`.
 
-Material components in this package use `material_ui`. Follow Flutter's
-[official migration guide for standalone `material_ui` and `cupertino_ui`](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui)
-when integrating the design libraries in your app.
+For large lists, move detection adds work; enable `detectMoves` only when needed.
+Optionally call `await GreatListView.init()` before `runApp()` to start diff
+workers early. Otherwise workers start on demand.
 
-## Example
+## Detailed examples
 
-The [runnable example](example/README.md) provides **List** and **Tree** tabs,
-covering automatic updates, manual notifications, slivers, reordering and tree
-views with or without animation.
+Each folded example is a separate, complete `main.dart`. Material examples also
+need a direct `material_ui` dependency. The [example app](example/README.md)
+combines these capabilities with state-preserving tabs and controls.
 
-Existing limitations: no separated-list constructor, no complete list semantics
-support, and no infinite lists.
+### Automatic updates
 
-## Development
+`AutomaticAnimatedListView` compares old and new lists and notifies its
+`AnimatedListController`. Use implicit animations for changes to size or color.
+For text or other content that cannot animate implicitly, `morphComparator`
+returns true when the old and new widgets have equivalent content, avoiding an
+unnecessary cross-fade.
 
-Development uses Flutter 3.47.9 through the repository's FVM configuration.
-
-```sh
-fvm install
-make bootstrap
-make check
-```
-
-Use `make help` for other commands. See the [example guide](example/README.md)
-for platform run and build commands.
-
-## Automatic Animated List View
-
-The simplest way to create an animated list view that automatically animates to fit the contents of a `List` is to use the `AutomaticAnimatedListView` widget.
-A list of data must be passed to the widget via the `list` attribute.
-This widget uses an `AnimatedListDiffListDispatcher` internally. This class uses the Myers algorithm that dispatches the differences to the list view after comparing the new `list` object with the old one.
-In this regard, it is necessary to pass to the `comparator` attribute an `AnimatedListDiffListBaseComparator` object which takes care of comparing an item of the old list with an item of the new list via two methods:
-- `sameItem` must return `true` if the two compared items are the same (if the items have their own ID, just check the two IDs are equal);
-- `sameContent` is called only when `sameItem` returns `true`. Return `true` for equal content and `false` to dispatch a change notification.
-You can also use the callback function-based `AnimatedListDiffListComparator` version, saving you from creating a new derived class.
-
-The list view needs an `AnimatedListController` object to be controlled. Just instantiate it and pass it to the `listController` attribute of the `AutomaticAnimatedListView` widget.
-The `AutomaticAnimatedListView` widget uses the controller to notify the changes identified by the Myers algorithm.
-
-Finally, you have to pass a delegate to the `itemBuilder` attribute in order to build all item widgets of the list view.
-The delegate has three parameters:
-- the `BuildContext` to use to build items;
-- the item of the `List`, which could be taken from either the old or the new list;
-- an `AnimatedWidgetBuilderData` object, which provide further interesting information.
-
-The most important attributes of the `AnimatedWidgetBuilderData` object to consider for sure are:
-- `measuring` is a flag, and indicates to build an item not in order to be rendered on the screen, but only to measure its extent. This flag must certainly be taken into consideration for performance purposes if the item is a complex widget, as it will certainly be faster to measure an equivalent but simplified widget having the same extent. Furthermore, it is important that the widget does not have animation widgets inside, because the measurement performed must refer to its final state;
-- `animation`, provides an `Animation` object to be used to animate the incoming and outcoming effects (which occur when the item is removed or inserted); the value `1` indicates that the item has completely entered the list view, whereas `0` indicates that the item is completely dismissed.
-Unless you want to customize these animations, you can ignore this attribute.
-
-By default, all animations are automatically wrapped around the item built by the `itemBuilder`, with the exception of animation which deals with modifying the content of a item, which must be implicit to the widget itself.
-For example, if the content of the item reflects its size, margins or color, simply wrap the item in an `AnimatedContainer`: this widget will take care of implicitly animating the item when one of the above attributes changes value.
-
-The `itemExtent` attribute can be used to set a fixed extent for all items.
-
-If the `detectMoves` attribute is set to `true`, the dispatcher will also calculate if there are items that can be moved, rather than removing and inserting them from scratch.
-I do not recommend enabling this attribute for lists that are too large, as the algorithm used by `AnimatedListDiffListDispatcher` to determine which items are moved is rather slow.
-
-### Example 1 (Automatic Animated List View)
+<details>
+<summary>1. Automatic animated list</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -133,6 +158,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -250,23 +281,16 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-However, if the changing content cannot be implicitly animated using implicit animations, such as animating a text that is changing, this library also provides the `MorphTransition` widget, which performs a cross-fade effect between an old widget and the new one.
-The `MorphTransition` widget uses a delegate to be passed to the `comparator` attribute which takes care of comparing the old widget with the new one. This delegate has to return `false` if the two widgets are different, in order to trigger the cross-fade effect.
-This comparator needs to be well implemented, because returning `false` even when not necessary will lead to a drop in performance as this effect would also be applied to two completely identical widgets, thus wasting precious resources to perform an animation that is not actually necessary and that is not even perceptible to the human eye.
+</details>
 
-More simply, you can pass the delegate directly to the `morphComparator` attribute of the `AutomaticAnimatedListView` widget, in this way all items will automatically be wrapped with a `MorphTransition` widget.
-
-For more features please read the documentation of the `AutomaticAnimatedListView` class.
-
-### Example 2 (Automatic Animated List View with MorphTransition)
+<details>
+<summary>2. Automatic animated list with MorphTransition</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -276,6 +300,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -404,27 +434,22 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-## Animated List View
+</details>
 
-If you want to have more control over the list view, or if your data is not just items of a `List` object, I suggest using the more flexible `AnimatedListView` widget.
+### Manual notifications and dispatchers
 
-Unlike the `AutomaticAnimatedListView` widget, the `AnimatedListView` does not use the Myers algorithm internally, so all change notifications have to be manually notified to the list view.
+`AnimatedListView` builds by index. Mutate your data first, then call
+`notifyInsertedRange`, `notifyRemovedRange`, `notifyChangedRange`,
+`notifyReplacedRange` or `notifyMovedRange`. Outgoing builders must retain the
+old items; their indexes are relative to the notified range. Group several
+notifications with `controller.batch()`.
 
-As with the `AutomaticAnimatedListView` widget, you need to pass an `AnimatedListController` object to the `listController` attribute.
+An explicit `AnimatedListDiffListDispatcher` provides diff updates for a manually
+controlled list. Await `dispatchNewList()` and discard pending work when the
+owning state is disposed.
 
-The widget also needs the initial count of the items, via `initialItemCount` attribute.
-This attribute is only used in the very early stage of creating the widget, since the item count will then be automatically derived based on the notifications sent.
-
-The delegate to pass to the `itemBuilder` attribute has the same purpose as the `AutomaticAnimatedListView`, however it differs in the second parameter. While the item itself of a `List` object was passed for the `AutomaticAnimatedListView`, an index is passed for the `AnimatedListView` instead.
-The index of this builder will always refer to the final underlying list, i.e. the list already modified after all the notifications.
-
-Removed or changed items will instead use another builder that will need to be passed to the controller.
-For example, to notify the list view that the first three items have been removed, you need to call the controller's `notifyRemovedRange` method with `from = 0` and `count = 3`, and pass it a new builder that only builds the three removed items. The index, which ranges from `0` and `2`, will refer in this case only to the three removed items.
-The other methods `notifyChangedRange`,` notifyInsertedRange`, `notifyReplacedRange` and `notifyMovedRange` can be used instead to respectfully notify a range of items that have been modified, inserted, replaced or moved.
-
-If you need to send multiple notifications in sequence, it is recommended for performance purposes to invoke the `batch` method instead, which takes a parameterless delegate as input, and then send all the notifications within it.
-
-### Example 3 (Animated List View)
+<details>
+<summary>3. Manual animated list</summary>
 
 ```dart
 import 'dart:math';
@@ -432,9 +457,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -444,6 +467,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -587,19 +616,16 @@ final scrollController = ScrollController();
 final controller = AnimatedListController();
 ```
 
-It is always possible to manually integrate the Myers algorithm using an `AnimatedListDiffListDispatcher` or a more generic `AnimatedListDiffDispatcher` (if your data are not formed from elements of a `List` object).
+</details>
 
-For more features please read the documentation of the `AnimatedListView` class.
-
-### Example 4 (Animated List View with a dispatcher)
+<details>
+<summary>4. Animated list with an explicit diff dispatcher</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -609,6 +635,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -646,14 +678,25 @@ class _BodyState extends State<Body> {
     );
   }
 
-  void swapList() {
-    setState(() {
-      if (dispatcher.currentList == listA) {
-        dispatcher.dispatchNewList(listB, detectMoves: true);
-      } else {
-        dispatcher.dispatchNewList(listA, detectMoves: true);
-      }
-    });
+  bool _dispatching = false;
+
+  Future<void> swapList() async {
+    if (_dispatching) return;
+    _dispatching = true;
+    try {
+      await dispatcher.dispatchNewList(
+        identical(dispatcher.currentList, listA) ? listB : listA,
+        detectMoves: true,
+      );
+    } finally {
+      _dispatching = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    dispatcher.discard();
+    super.dispose();
   }
 
   @override
@@ -737,25 +780,22 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-## Animated Sliver List
+</details>
 
-If the list view consists of multiple slivers, you will need to use the `AnimatedSliverList` (or `AnimatedSliverFixedExtentList` if the items all have a fixed extent) class within a `CustomScrollView` widget.
+### Sliver composition
 
-The `AnimatedSliverList` only needs two parameters, the usual `listController` and a delegate.
+Use `AnimatedSliverList` in a `CustomScrollView` alongside ordinary slivers.
+`AnimatedSliverFixedExtentList` supplies the fixed-height variant; the runnable
+example demonstrates both.
 
-The `AutomaticAnimatedListView` and `AnimatedListView` widgets automatically use these slivers internally with the help of a default delegate implementation offered by the `AnimatedSliverChildBuilderDelegate` class.
-
-The `AnimatedSliverChildBuilderDelegate` delegate is more than enough to cover most needs, however, if you need more control, you can always create a new one by extending the `AnimatedSliverChildDelegate` class. However, I don't recommend extending this class directly unless strictly necessary.
-
-### Example 5 (Animated List using slivers)
+<details>
+<summary>5. Animated list using slivers</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -765,6 +805,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -802,14 +848,25 @@ class _BodyState extends State<Body> {
     );
   }
 
-  void swapList() {
-    setState(() {
-      if (dispatcher.currentList == listA) {
-        dispatcher.dispatchNewList(listB);
-      } else {
-        dispatcher.dispatchNewList(listA);
-      }
-    });
+  bool _dispatching = false;
+
+  Future<void> swapList() async {
+    if (_dispatching) return;
+    _dispatching = true;
+    try {
+      await dispatcher.dispatchNewList(
+        identical(dispatcher.currentList, listA) ? listB : listA,
+        detectMoves: true,
+      );
+    } finally {
+      _dispatching = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    dispatcher.discard();
+    super.dispose();
   }
 
   @override
@@ -913,25 +970,30 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-## Reordering
+</details>
 
-The list view can also be reordered on demand, even while it is animating.
-You can enable the automatic reordering feature, which is activated by long pressing on the item you want to reorder, setting the `addLongPressReorderable` attribute to `true` (this attribute can also be found in the `AutomaticAnimatedListView`, `AnimatedListView` and` AnimatedSliverChildBuilderDelegate` classes).
+### Reordering
 
-In addition you have to pass a model to the `reorderModel` attribute by extending the `AnimatedListBaseReorderModel` class.
-You can also use the callback function-based `AnimatedListReorderModel` version, saving you from creating a new derived class.
+Pass a reorder model and enable `addLongPressReorderable` for long-press sorting.
+`AutomaticAnimatedListReorderModel` updates a mutable list for you; a custom
+`AnimatedListReorderModel` can restrict moves or update application data itself.
 
-The fastest way to add support for reordering for all items is to use a `AutomaticAnimatedListView` widget and pass an instance of the `AutomaticAnimatedListReorderModel` class (it requires as input the same list you pass to the list view via the `list` attribute).
+For drag handles, disable long-press sorting and call `notifyStartReorder`,
+`notifyUpdateReorder` and `notifyStopReorder` from the gesture callbacks. Pass
+`true` to `notifyStopReorder` when the gesture is cancelled.
 
-### Example 6 (Reorderable Automatic Animated List View)
+`onReorderFeedback` can return extra drag state, available through `data.slot`
+and in `onReorderComplete`. The tree example uses it to preview indentation and
+choose the destination parent.
+
+<details>
+<summary>6. Automatic animated list with long-press reordering</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -941,6 +1003,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1058,20 +1126,10 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-If you need more control, or if you are not using the `AutomaticAnimatedListView` widget, you will need to implement the reorder model manually.
+</details>
 
-The model requires the implementation of four methods.
-
-In order to enable reordering of all items, simply have the `onReorderStart` callback return `true`. The function is called with the index of the item to be dragged for reordering, and the coordinates of the exact point touched. The function must return a flag indicating whether the item can be dragged/reordered or not.
-
-To allow the dragged item to be dropped in the new moved position, simply have the `onReorderMove` callback return `true`. The function is called with the index of the item being dragged and the index that the item would assume. The function must return a flag indicating whether or not the item can be moved in that new position.
-
-Finally you have to implement the `onReorderComplete` function to actually move the dragged item. As the `onReorderMove` method, the function is called by passing it the two indices, and must return `true` to confirm the swap. If the function returns `false`, the swap will fail, and the dragged item will return to its original position.
-The `onReorderComplete` function is also responsible for actually swapping the two items in the underlying data list when it returns `true`.
-
-For more details about the model read the documentation of the `AnimatedListBaseReorderModel` class.
-
-### Example 7 (Reorderable Animated List View with custom reorder model)
+<details>
+<summary>7. Animated list with a custom reorder model</summary>
 
 ```dart
 import 'dart:math';
@@ -1079,9 +1137,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -1091,6 +1147,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1241,21 +1303,16 @@ final scrollController = ScrollController();
 final controller = AnimatedListController();
 ```
 
-If you want to implement a custom reordering, for example based on dragging an handle instead of long pressing the item, you will have to use the controller again to notify the various steps of the reordering process, calling the `notifyStartReorder`, `notifyUpdateReorder` and `notifyStopReorder` methods.
+</details>
 
-The `notifyStartReorder` method must be called first, by passing it as a parameter the build context of the item to be dragged, as well as the coordinates of the point that will be used as the origin point for the translation.
-In order to translate the item to the new position you have to call the `notifyUpdateReorder` method, passing it the coordinates of the new point.
-Finally, to finish the reordering you have to call the `notifyStopReorder` method.
-
-### Example 8 (Reorderable Automatic Animated List View with a handle)
+<details>
+<summary>8. Automatic animated list with drag handles</summary>
 
 ```dart
 import 'package:material_ui/material_ui.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -1265,6 +1322,12 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1410,39 +1473,21 @@ final controller = AnimatedListController();
 final gkey = GlobalKey<_BodyState>();
 ```
 
-The model also provides the `onReorderFeedback` method which can be implemented to gain more control over the drag phase.
-The method is continuously called every time the dragged item is moved not only along the main axis of the list view, but also along the cross axis, passing the delta of the deviation from the origin point.
-The method have to return an instance of any object (or null) each time.
-If the object instance is different from the one returned in the previous call, the dragged item will be rebuilded.
-The last instance returned from the `onReorderFeedback` method will eventually be passed as the last argument to the `onReorderComplete` method.
+</details>
 
-An example of the use of the feedback is shown in the tree list adapter example in order to implement a horizontal drag feature (cross axis), used to change the parent of the node being dragged.
+### Tree adapter
 
-## Tree List Adapter
+`TreeListAdapter` maps your node type into list indexes using `parentOf`,
+`childrenCount`, `childAt`, `isNodeExpanded`, `indexOfChild` and `equals`
+callbacks. Use `nodeToIndex` and `indexToNode` to move between nodes and indexes.
 
-Does you data consist of nodes in a hierarchical tree and you need a tree view to show them? No problem, you can use the `TreeListAdapter` class to convert the nodes to a linear list.
-Each node will therefore be an item of a list view corresponding to a specific index.
-The `nodeToIndex` and `indexToNode` methods can be used the former to determine the list index of a particular node and the latter to determine the node corresponding to a given index.
-The class internally uses a window that shows only a part of the tree properly converted into a linear list. Each time the index of a new node is requested, the window will be moved to contain that node.
+Expansion, collapse, insertion, removal and moves use the adapter's notification
+methods, with callbacks that update the underlying tree. Supply a controller
+and builder to animate these changes, or use the adapter with a plain
+`ListView`. The runnable example covers both hosts.
 
-In order to perform this conversion, the adapter needs a model that describes the tree.
-The model is nothing more than a bunch of callback functions that you have to implement. These are:
-- `parentOf` returns the parent of a node;
-- `childrenCount` returns the count of the children belonging to a node;
-- `childAt` returns the child node of a parent node at a specific position;
-- `isNodeExpanded` returns `true` if the node is expanded, `false` if it is collapsed;
-- `indexOfChild` returns the position of a child node with respect to the parent node;
-- `equals` returns `true` if two nodes are equal.
-
-To notify when a particular node is expanded or collapsed, the `notifyNodeExpanding` and `notifyNodeCollapsing` methods must be called respectively. It will be necessary to pass the involved node and a callback function that updates the status of the node (expanded / collapsed).
-
-To notify when a particular node is removed from or inserted into the tree, the `notifyNodeRemoving` and `notifyNodeInserting` methods must be called respectively. It will be necessary to pass the involved node and a callback function that updates the tree, performing the actual removal or insertion of the node.
-
-Instead, to notify when a node is moved from a certain position to a new one, use the `notifyNodeMoving` method (see documentation for more details).
-
-This adapter works well also with a normal `ListView`. However, the adapter also offers the ability to automatically notify changes to an animated list view by simply passing the controller of your list view in the constructor.
-
-### Example 9 (Reorderable Tree View)
+<details>
+<summary>9. Reorderable tree view</summary>
 
 ```dart
 import 'dart:math';
@@ -1452,7 +1497,7 @@ import 'package:great_list_view_plus/great_list_view_plus.dart';
 
 void main() {
   buildTree(rnd, root, 5, 3);
-  runApp(App());
+  runApp(const App());
 }
 
 class App extends StatefulWidget {
@@ -1508,6 +1553,7 @@ class _BodyState extends State<Body> {
         onReorderFeedback: (fromIndex, toIndex, offset, dx, dy) {
           var level =
               adapter.levelOf(adapter.indexToNode(fromIndex)) + dx ~/ 15.0;
+          if (adapter.includeRoot && toIndex == 0) return level;
           var levels = adapter.getPossibleLevelsOfMove(fromIndex, toIndex);
           return level.clamp(levels.from, levels.to - 1);
         },
@@ -1515,6 +1561,7 @@ class _BodyState extends State<Body> {
           return !adapter.includeRoot || toIndex != 0;
         },
         onReorderComplete: (fromIndex, toIndex, slot) {
+          if (adapter.includeRoot && toIndex == 0) return false;
           var levels = adapter.getPossibleLevelsOfMove(fromIndex, toIndex);
           if (!levels.isIn(slot as int)) return false;
           adapter.notifyNodeMoving(
@@ -1648,6 +1695,7 @@ Widget itemBuilder(
       }
     },
     onRemoveTap: () {
+      if (node == root) return; // The visible root cannot be removed.
       adapter.notifyNodeRemoving(node, () {
         node.parent!.children.remove(node);
       }, updateParentNode: true);
@@ -1674,7 +1722,7 @@ void buildTree(Random r, NodeData node, int maxChildren, [int? startWith]) {
 TreeListAdapter<NodeData> adapter = TreeListAdapter<NodeData>(
   childAt: (node, index) => node.children[index],
   childrenCount: (node) => node.children.length,
-  parentOf: (node) => node.parent!,
+  parentOf: (node) => node.parent ?? root,
   indexOfChild: (parent, node) => parent.children.indexOf(node),
   isNodeExpanded: (node) => !collapsedMap.contains(node),
   includeRoot: true,
@@ -1707,21 +1755,22 @@ const List<String> kNames = [
 ];
 
 final root = NodeData('Me');
-final rnd = Random();
+final rnd = Random(23);
 final collapsedMap = <NodeData>{};
 final controller = AnimatedListController();
 ```
 
-## Additional useful methods
+</details>
 
-The `AnimatedListController` object provides other useful methods for obtaining information about the placement of the items.
+### Scroll to an index
 
-Another useful method is `computeItemBox` which allows you to retrieve the box (position and size) of an item. This method is often used in conjunction with the `jumpTo` and` animateTo` methods of a `ScrollController` to scroll to a certain item.
+`controller.computeItemBox(index, true)` returns item geometry for a shared
+`ScrollController`. It can return null while layout or animation is updating;
+wait before trying again. Use `initialScrollOffsetCallback` to choose the initial
+position after measuring items.
 
-It is also possible to position at a certain scroll offset when the list view is built for the first time using
-the `initialScrollOffsetCallback` attribute of the `AnimatedSliverChildDelegate`, `AnimatedListView` and `AutomaticAnimatedListView` classes; a callback function has to be passed that is invoked at the first layout of the list view, and it has to return the offset to be positioned at the beginning.
-
-### Example 10 (Scroll To Index)
+<details>
+<summary>10. Scroll to an index and set the initial offset</summary>
 
 ```dart
 import 'dart:math';
@@ -1730,12 +1779,21 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:great_list_view_plus/great_list_view_plus.dart';
 
-Future<void> main() async {
-  runApp(App());
+void main() => runApp(const App());
+
+class App extends StatefulWidget {
+  const App({super.key});
+
+  @override
+  State<App> createState() => _AppState();
 }
 
-class App extends StatelessWidget {
-  const App({super.key});
+class _AppState extends State<App> {
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1802,7 +1860,7 @@ class Item extends StatelessWidget {
             .constraints;
         final r = box.top - (c.viewportMainAxisExtent - box.height) / 2.0;
         scrollController.animateTo(
-          r,
+          r.clamp(0.0, scrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeIn,
         );
@@ -1845,3 +1903,49 @@ List<ItemData> myList = [
 final scrollController = ScrollController();
 final controller = AnimatedListController();
 ```
+
+</details>
+
+## Development
+
+Development uses Flutter 3.47.9, pinned in `.fvmrc`.
+
+```sh
+fvm install
+make bootstrap
+make check
+```
+
+`make test` runs package and example tests. Use `make capture-demos` to regenerate
+the gallery; see the [example guide](example/README.md#readme-recordings) for
+requirements. `make help` lists other commands.
+
+<!-- friesi23-projects:start -->
+
+## More projects
+
+| Project | Description |
+| --- | --- |
+| ![Flutter Package](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Simple Heatmap Calendar](https://github.com/FriesI23/simple_heatmap_calendar) | Customizable Flutter heatmap calendar with internationalization support. |
+| ![Flutter Package](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Adaptive Actions](https://github.com/FriesI23/adaptive_actions) | Adaptive Flutter action bars and overflow menus for Material and Cupertino. |
+| ![Flutter Package](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Flutter Adaptive Sidebar](https://github.com/FriesI23/flutter_adaptive_sidebar) | Material and Cupertino sidebars for Flutter with a shared controller. |
+| ![Flutter Package](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Named HTML Color](https://github.com/FriesI23/named_html_color) | HTML named colors for Flutter. |
+| ![Flutter Plugin](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [iOS Window Control Layout](https://github.com/FriesI23/ios_window_control_layout) | Keep Flutter layouts clear of iPadOS window controls. |
+| ![Flutter Plugin](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Native Natural Sort](https://github.com/FriesI23/native_natural_sort) | Locale-aware natural sorting for Flutter using native platform engines. |
+| ![Dart Package](https://img.shields.io/badge/-0175C2?style=flat-square&logo=dart&logoColor=white) [Simple WebDAV Client](https://github.com/FriesI23/simple_webdav_client) | Dart WebDAV client for file operations, properties, and resource locks. |
+| ![Dart Package](https://img.shields.io/badge/-0175C2?style=flat-square&logo=dart&logoColor=white) [Dart Transmission RPC](https://github.com/FriesI23/dart_transmission_rpc) | Dart client for the Transmission RPC API. |
+| ![Dart Package](https://img.shields.io/badge/-0175C2?style=flat-square&logo=dart&logoColor=white) [Win2IANA TimeZone Converter](https://github.com/FriesI23/win2iana_tz_converter) | Dart utilities for converting Windows and IANA time zone identifiers. |
+| ![App](https://img.shields.io/badge/-02569B?style=flat-square&logo=flutter&logoColor=white) [Table Habit](https://github.com/FriesI23/mhabit) | Cross-platform habit tracker with scoring, charts, and WebDAV sync. |
+
+<!-- friesi23-projects:end -->
+
+## License
+
+[MIT](LICENSE), copyright (c) 2020 Belsole Davide. This fork preserves the original
+license and attribution.
+
+[pubdev-package]: https://img.shields.io/pub/v/great_list_view_plus.svg
+[pubdev-likes]: https://img.shields.io/pub/likes/great_list_view_plus?logo=dart
+[pubdev-points]: https://img.shields.io/pub/points/great_list_view_plus?logo=dart
+[list-demo]: https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/list.webp
+[tree-demo]: https://raw.githubusercontent.com/FriesI23/great_list_view_plus/master/images/tree.webp

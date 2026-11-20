@@ -19,7 +19,7 @@ endif
 FLUTTER := $(LOCAL_FLUTTER)
 DART := $(LOCAL_DART)
 EXAMPLE_DIR := example
-DART_DIRS := lib test $(EXAMPLE_DIR)/lib $(EXAMPLE_DIR)/test
+DART_DIRS := lib test $(EXAMPLE_DIR)/lib $(EXAMPLE_DIR)/test $(EXAMPLE_DIR)/tool
 
 # Machine output supplements the readable reporter and preserves test exit codes.
 # MACHINE_OUT is relative to the repository root; example_<filename> is written
@@ -32,7 +32,7 @@ TEST_ARGS := $(TEST_REPORTER) \
 EXAMPLE_TEST_ARGS := $(TEST_REPORTER) \
              $(if $(MACHINE_OUT),--file-reporter="json:$(dir $(abspath $(MACHINE_OUT)))example_$(notdir $(MACHINE_OUT))",)
 
-.PHONY: help bootstrap format format-check fix analyze test check aio
+.PHONY: help bootstrap format format-check fix analyze test check aio capture-demos
 
 help:
 	@echo "great_list_view_plus - automation entrypoints"
@@ -45,6 +45,7 @@ help:
 	@echo "  test            Run package and example tests (CI=1, MACHINE_OUT=path optional)"
 	@echo "  check           Resolve dependencies, check formatting, analyze, and test"
 	@echo "  aio             Resolve dependencies, apply fixes, format, analyze, and test"
+	@echo "  capture-demos   Record README animations (requires WebP tools and bash)"
 
 bootstrap:
 	@"$(FLUTTER)" pub get
@@ -81,3 +82,8 @@ aio:
 	@$(SUBMAKE) fix
 	@$(SUBMAKE) analyze
 	@$(SUBMAKE) test
+
+capture-demos:
+	@command -v img2webp >/dev/null || { echo "img2webp (WebP tools) is required." >&2; exit 1; }
+	@cd "$(EXAMPLE_DIR)" && "$(FLUTTER)" test tool/capture_demos.dart
+	@bash $(EXAMPLE_DIR)/tool/encode_demos.sh
