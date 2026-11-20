@@ -1,3 +1,8 @@
+## 0.3.1
+
+* Include the full MIT license in the README and add the maintainer copyright
+  notice while preserving the original attribution.
+
 ## 0.3.0
 
 * Maintain `great_list_view_plus` as a fork of `great_list_view` 0.2.3.

@@ -1,6 +1,6 @@
 name: great_list_view_plus
 description: Animated and reorderable Flutter lists with automatic diff updates and a tree adapter. Maintained fork of great_list_view.
-version: 0.3.0
+version: 0.3.1
 homepage: https://github.com/FriesI23/great_list_view_plus
 repository: https://github.com/FriesI23/great_list_view_plus
 issue_tracker: https://github.com/FriesI23/great_list_view_plus/issues
