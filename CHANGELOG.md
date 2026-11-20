@@ -1,3 +1,12 @@
+## 0.3.0
+
+* Maintain `great_list_view_plus` as a fork of `great_list_view` 0.2.3.
+* Require Flutter 3.47 / Dart 3.13 and migrate Material components to `material_ui`.
+* **Breaking:** Use `great_list_view_plus.dart` as the single entry point; remove
+  legacy imports and internal/third-party API exports.
+* Add optional `GreatListView.init()` for latency-sensitive large-list updates.
+* Expand list/tree examples and improve tree reordering and drag cancellation.
+
 ## [0.0.1] to [0.0.8] - 13-11-2020
 
 Initial alpha release. Includes `AnimatedSliverList`, `AnimatedListDiffDispatcher` and `TreeListAdapter` core classes.

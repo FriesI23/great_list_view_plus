@@ -1,136 +1,83 @@
-# great_list_view
+# great_list_view_plus example
 
-A Flutter package that includes a powerful, animated and reorderable list view. Just notify the list view of changes in your underlying list and the list view will automatically animate. You can also change the entire list and automatically dispatch the differences detected by the Myers alghoritm. 
-You can also reorder items by simply long-tapping the item you want to move.
+The bottom navigation separates **List** and **Tree**. Each page keeps its state
+when switching tabs; restart the app to restore all list data.
 
-## Example
+| Page / mode | Try it |
+| --- | --- |
+| List / Automatic | Press **Switch data** to animate insertions, removals, moves and content/height changes. Toggle **Morph** to compare transitions. |
+| List / Manual | Use **Insert**, **Change**, **Remove**, **Replace**, **Move range** and **Batch**. These update application data and explicitly notify the controller. |
+| List / Sliver | Press **Dispatch new list** to use an explicit diff dispatcher with a header, animated sliver and footer. Toggle **Fixed extent** for both sliver implementations. |
+| List controls | Choose **Long press** or **Drag handle** for sorting. Toggle **Slow animation** for custom durations and curves. Enter a zero-based **Index** and press **Scroll to index**. On phones, scroll the toolbars horizontally for more controls. |
+| Tree / Animated list | Select a node, **Add child** or **Delete subtree**, and use the arrow to expand/collapse. Long press a leaf or closed branch, drag vertically to reorder and sideways (24 logical pixels per level) to change parent. The dragged row previews its permitted indentation. |
+| Tree / Plain ListView | The same callback-defined data feeds a standard ListView, with expansion and subtree editing. Tree data and expansion survive host changes; each host retains its scroll position. |
 
-This is an example of how to use `AnimatedSliverList` with a `ListAnimatedListDiffDispatcher`, which works on `List` objects, to swap two lists with automated animations.
-The list view is even reorderable.
+The tree root stays visible and cannot be deleted or dragged. An open branch
+closes on its first long press; long press it again to move the entire closed
+subtree. Pointer cancellation and tab/mode changes cancel active drags.
+**Reset tree** restores deterministic sample data.
 
-```dart
-import 'package:flutter/material.dart';
-import 'package:great_list_view/great_list_view.dart';
+From the repository root, run `fvm install`, `fvm use 3.47.9 --skip-pub-get`, and
+`make bootstrap`. `make analyze` checks the package and example together, and
+`make test` runs both test suites. The example shares the root FVM pin and minimum
+SDK requirements.
 
-void main() {
-  Executor().warmUp();
-  runApp(App());
-}
+The example includes Android, iOS, macOS, Windows, and Linux runner projects,
+generated with Flutter 3.47.9. Each platform uses the same Dart example and the
+local package dependency. The package currently supports these five native
+platforms; its `dart:io` and worker implementation does not support web.
 
-class App extends StatefulWidget {
-  @override
-  _AppState createState() => _AppState();
-}
+## Run
 
-class _AppState extends State<App> {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-        title: 'Test App',
-        home: SafeArea(
-            child: Scaffold(
-          body: Body(key: gkey),
-        )));
-  }
-}
+From this directory, use the SDK selected by the repository's FVM configuration:
 
-class Body extends StatefulWidget {
-  Body({Key? key}) : super(key: key);
-
-  @override
-  _BodyState createState() => _BodyState();
-}
-
-class _BodyState extends State<Body> {
-  late List<ItemData> currentList;
-
-  @override
-  void initState() {
-    super.initState();
-    currentList = listA;
-  }
-
-  void swapList() {
-    setState(() {
-      if (currentList == listA) {
-        currentList = listB;
-      } else {
-        currentList = listA;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scrollbar(
-      child: AutomaticAnimatedListView<ItemData>(
-        list: currentList,
-        comparator: AnimatedListDiffListComparator<ItemData>(
-            sameItem: (a, b) => a.id == b.id,
-            sameContent: (a, b) =>
-                a.color == b.color && a.fixedHeight == b.fixedHeight),
-        itemBuilder: (context, item, data) => data.measuring
-            ? Container(
-                margin: EdgeInsets.all(5), height: item.fixedHeight ?? 60)
-            : Item(data: item),
-        listController: controller,
-        addLongPressReorderable: true,
-        reorderModel: AutomaticAnimatedListReorderModel(currentList),
-        detectMoves: true,
-      ),
-    );
-  }
-}
-
-class Item extends StatelessWidget {
-  final ItemData data;
-
-  const Item({Key? key, required this.data}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-        onTap: () => gkey.currentState?.swapList(),
-        child: AnimatedContainer(
-            height: data.fixedHeight ?? 60,
-            duration: const Duration(milliseconds: 500),
-            margin: EdgeInsets.all(5),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-                color: data.color,
-                border: Border.all(color: Colors.black12, width: 0)),
-            child: Center(
-                child: Text(
-              'Item ${data.id}',
-              style: TextStyle(fontSize: 16),
-            ))));
-  }
-}
-
-class ItemData {
-  final int id;
-  final Color color;
-  final double? fixedHeight;
-  const ItemData(this.id, [this.color = Colors.blue, this.fixedHeight]);
-}
-
-List<ItemData> listA = [
-  ItemData(1, Colors.orange),
-  ItemData(2),
-  ItemData(3),
-  ItemData(4, Colors.cyan),
-  ItemData(5),
-  ItemData(8, Colors.green)
-];
-List<ItemData> listB = [
-  ItemData(4, Colors.cyan),
-  ItemData(2),
-  ItemData(6),
-  ItemData(5, Colors.pink, 100),
-  ItemData(7),
-  ItemData(8, Colors.yellowAccent),
-];
-
-final controller = AnimatedListController();
-final gkey = GlobalKey<_BodyState>();
+```sh
+fvm flutter devices
+fvm flutter run -d <device-id>
 ```
+
+Use `-d macos`, `-d windows`, or `-d linux` for the desktop host. Android and iOS
+can run on a connected device or an emulator/simulator. A physical iOS device
+requires selecting your own signing team in `ios/Runner.xcworkspace`.
+
+## Build
+
+From this directory, use Flutter's build commands directly:
+
+```sh
+fvm flutter build apk --debug
+fvm flutter build ios --simulator --debug
+fvm flutter build macos --debug
+fvm flutter build windows --debug
+fvm flutter build linux --debug
+```
+
+Build on the corresponding host: Android needs its SDK and JDK 17; iOS and macOS
+need macOS and Xcode; Windows needs Visual Studio with desktop C++ tooling; Linux
+needs Clang, CMake, Ninja, pkg-config, GTK 3 development files, and the C++ standard
+library development files. See [Flutter platform setup](https://docs.flutter.dev/platform-integration).
+
+Use `--release` instead of `--debug` for local release builds. Android release
+builds use the template's debug signing configuration for demonstration;
+publishing an app requires your own identity and signing configuration.
+
+## README recordings
+
+The README gallery is rendered from this app with scripted widget gestures.
+It records automatic/manual/sliver list updates, drag handles, and tree editing
+and cross-parent moves. These recordings show the Flutter UI; they do not
+represent native device acceptance tests.
+
+Install the WebP tools (`brew install webp` on macOS), then run from the
+repository root:
+
+```sh
+make bootstrap
+make capture-demos
+```
+
+The command requires Bash and `img2webp`. It loads real app fonts, captures a
+1100 x 900 light canvas at 83 ms intervals, and writes looping 880 x 720 WebP
+animations to `images/list.webp` and `images/tree.webp`. Intermediate PNG frames
+stay in `build/example-demos/`, which is ignored by Git. The gallery media stays
+in Git and is excluded from the published package.

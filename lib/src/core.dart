@@ -1,30 +1,7 @@
-import 'dart:async';
-import 'dart:collection';
-import 'dart:io' as io;
-import 'dart:math' as math;
+/// Shared item builders, controller and visibility values for list and tree clients.
+library;
 
-import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:great_list_view/src/dispatcher.dart';
-import 'package:great_list_view/src/morph_transition.dart'
-    show MorphComparator, MorphTransition;
-import 'package:great_list_view/ticker_mixin.dart';
-
-part 'animation.dart';
-part 'child_manager.dart';
-part 'delegates.dart';
-part 'interval_list.dart';
-part 'interval_manager.dart';
-part 'intervals.dart';
-part 'linked_list.dart';
-part 'multi_container.dart';
-part 'sliver_list.dart';
-part 'sliver_multi_box_adaptor.dart';
-part 'widgets.dart';
+import 'package:flutter/widgets.dart';
 
 /// Additional information to build a specific item of the list.
 class AnimatedWidgetBuilderData {
@@ -43,338 +20,281 @@ class AnimatedWidgetBuilderData {
   /// the original).
   final bool measuring;
 
-  /// The slot value you have returned from your [AnimatedListReorderModel].
+  /// The slot value you have returned from your `AnimatedListReorderModel`.
   final Object? slot;
 
-  const AnimatedWidgetBuilderData(this.animation,
-      {this.measuring = false,
-      this.dragging = false,
-      this.slot,
-      this.moving = false});
+  const AnimatedWidgetBuilderData(
+    this.animation, {
+    this.measuring = false,
+    this.dragging = false,
+    this.slot,
+    this.moving = false,
+  });
 }
 
 /// The builder used to build the items of the list view.
 typedef AnimatedWidgetBuilder = Widget Function(
-    BuildContext context, int index, AnimatedWidgetBuilderData data);
-
-typedef InitialScrollOffsetCallback = double? Function(
-    SliverConstraints constraints);
-
-typedef UpdateToOffsetCallback = double Function(
-    int index, int count, double remainingTime);
+  BuildContext context,
+  int index,
+  AnimatedWidgetBuilderData data,
+);
 
 /// The part of the size of the item that is currently visible.
-class _PercentageSize {
-  final double size, referredSize;
+class AnimatedListItemVisibility {
+  /// Visible length along the list's main axis, in logical pixels.
+  final double size;
 
-  _PercentageSize(this.size, this.referredSize);
+  /// Full item length along the list's main axis, in logical pixels.
+  final double referredSize;
 
+  const AnimatedListItemVisibility(this.size, this.referredSize);
+
+  /// The visible fraction of the item's full length.
   double get percentage => size / referredSize;
 
   @override
   String toString() => '${percentage * 100.0}%';
 }
 
-class _Measure {
-  final double value;
-  final bool estimated;
+/// Internal protocol implemented by a mounted list element.
+abstract interface class AnimatedListControllerDelegate {
+  BuildContext get context;
+  AnimatedListController get listController;
+  void notifyChangedRange(
+    int from,
+    int count,
+    AnimatedWidgetBuilder changeItemBuilder,
+  );
 
-  static const _Measure zero = _Measure(0, false);
+  void notifyInsertedRange(int from, int count);
 
-  const _Measure(this.value, [this.estimated = false]);
+  void notifyRemovedRange(
+    int from,
+    int count,
+    AnimatedWidgetBuilder removeItemBuilder,
+  );
 
-  _Measure operator +(_Measure m) =>
-      _Measure(value + m.value, estimated || m.estimated);
+  void notifyReplacedRange(
+    int from,
+    int removeCount,
+    int insertCount,
+    AnimatedWidgetBuilder removeItemBuilder,
+  );
 
-  _Measure operator -(_Measure m) =>
-      _Measure(value - m.value, estimated || m.estimated);
+  void notifyMovedRange(int from, int count, int newIndex);
 
-  @override
-  String toString() => estimated ? '≈$value' : '$value';
+  void batch(VoidCallback callback);
+
+  bool notifyStartReorder(BuildContext context, double dx, double dy);
+
+  void notifyUpdateReorder(double dx, double dy);
+
+  void notifyStopReorder(bool cancel);
+
+  Rect? computeItemBox(int index, bool absolute);
+
+  AnimatedListItemVisibility? getItemVisibleSize(int index);
 }
 
-extension _MeasureExtension on double {
-  _Measure toExactMeasure() => this == 0.0 ? _Measure.zero : _Measure(this);
-}
+/// Use this controller to notify to the `AnimatedListView` about changes in your underlying list and more.
+class AnimatedListController {
+  AnimatedListControllerDelegate? _interface;
 
-class _UpdateFlags {
-  const _UpdateFlags([int flags = 0])
-      : _value = flags,
-        assert((flags &
-                ~(CLEAR_LAYOUT_OFFSET |
-                    KEEP_FIRST_LAYOUT_OFFSET |
-                    POPUP_PICK |
-                    POPUP_DROP |
-                    DISCARD_ELEMENT)) ==
-            0),
-        assert((flags & (CLEAR_LAYOUT_OFFSET | KEEP_FIRST_LAYOUT_OFFSET)) !=
-            KEEP_FIRST_LAYOUT_OFFSET),
-        assert(
-            (flags & (POPUP_PICK | POPUP_DROP)) != (POPUP_PICK | POPUP_DROP));
+  /// Notifies the `AnimatedListView` that a range starting from [from] and [count] long
+  /// has been modified. Call this method after actually you have updated your list.
+  /// A new builder [changeItemBuilder] has to be provided in order to build the old
+  /// items when animating.
 
-  final int _value;
-
-  static const int CLEAR_LAYOUT_OFFSET = 1 << 0;
-  static const int KEEP_FIRST_LAYOUT_OFFSET = 1 << 1;
-  static const int DISCARD_ELEMENT = 1 << 2;
-  static const int POPUP_PICK = 1 << 3;
-  static const int POPUP_DROP = 1 << 4;
-
-  int get value => _value;
-
-  bool get hasClearLayoutOffset =>
-      (_value & CLEAR_LAYOUT_OFFSET) == CLEAR_LAYOUT_OFFSET;
-  bool get hasKeepFirstLayoutOffset =>
-      (_value & KEEP_FIRST_LAYOUT_OFFSET) == KEEP_FIRST_LAYOUT_OFFSET;
-  bool get hasDiscardElement => (_value & DISCARD_ELEMENT) == DISCARD_ELEMENT;
-  bool get hasPopupPick => (_value & POPUP_PICK) == POPUP_PICK;
-  bool get hasPopupDrop => (_value & POPUP_DROP) == POPUP_DROP;
-
-  @override
-  String toString() => [
-        if (hasClearLayoutOffset) 'CLEAR_LAYOUT_OFFSET',
-        if (hasKeepFirstLayoutOffset) 'KEEP_FIRST_LAYOUT_OFFSET',
-        if (hasDiscardElement) 'DISCARD_ELEMENT',
-        if (hasPopupPick) 'POPUP_PICK',
-        if (hasPopupDrop) 'POPUP_DROP'
-      ].join(', ');
-}
-
-class _Update {
-  _Update(this.index, this.oldBuildCount, this.newBuildCount,
-      [this.flags = const _UpdateFlags(), this.popUpList, this.toPopUpList])
-      : assert(index >= 0 && oldBuildCount >= 0 && newBuildCount >= 0),
-        assert(!flags.hasPopupPick || toPopUpList != null),
-        assert(!flags.hasPopupDrop || popUpList != null);
-
-  final int index;
-  final int oldBuildCount, newBuildCount;
-  final _UpdateFlags flags;
-  final _PopUpList? popUpList, toPopUpList;
-
-  int get skipCount => newBuildCount - oldBuildCount;
-
-  @override
-  String toString() =>
-      'U(i: $index, obc: $oldBuildCount, nbc: $newBuildCount, fl: $flags, pl: ${popUpList?.debugId}, tpl: ${toPopUpList?.debugId})';
-}
-
-typedef _IntervalBuilder = Widget Function(
-    BuildContext context, int index, AnimatedWidgetBuilderData data);
-
-// Creates a copy of an interval builder possibly adding more offset.
-// If the offset is zero, the same interval builder is returned.
-_IntervalBuilder? offsetIntervalBuilder(
-    final _IntervalBuilder? iBuilder, final int offset) {
-  if (offset == 0 || iBuilder == null) return iBuilder;
-  assert(offset > 0);
-  return (context, index, data) => iBuilder.call(context, index + offset, data);
-}
-
-// Joins two interval builder and returns a new merged one.
-_IntervalBuilder joinBuilders(final _IntervalBuilder leftBuilder,
-    final _IntervalBuilder rightBuilder, final int leftCount) {
-  assert(leftCount > 0);
-  return (context, index, data) => (index < leftCount)
-      ? leftBuilder.call(context, index, data)
-      : rightBuilder.call(context, index - leftCount, data);
-}
-
-class _DebugWidget extends StatelessWidget {
-  const _DebugWidget(this.child, this.debugText);
-
-  final Widget child;
-  final String Function() debugText;
-
-  @override
-  StatelessElement createElement() => _DebugElement(this);
-
-  @override
-  Widget build(BuildContext context) => child;
-}
-
-class _DebugElement extends StatelessElement {
-  _DebugElement(super.widget);
-}
-
-String debugElement(Element? element) {
-  if (element == null) return 'null';
-  var ret = 'UNKNOWN';
-  if (element.parent is AnimatedSliverMultiBoxAdaptorElement &&
-      element is _DebugElement) {
-    ret = (element.widget as _DebugWidget).debugText.call();
+  void notifyChangedRange(
+    int from,
+    int count,
+    AnimatedWidgetBuilder changeItemBuilder,
+  ) {
+    assert(_debugAssertBinded());
+    _interface!.notifyChangedRange(from, count, changeItemBuilder);
   }
-  return ret;
-}
 
-String debugRenderBox(RenderObject? ro) {
-  if (ro == null) return 'null';
-  final dc = ro.debugCreator;
-  if (dc is DebugCreator) {
-    Element? p, e = dc.element;
-    while (e != null) {
-      if (e is AnimatedSliverMultiBoxAdaptorElement) {
-        return debugElement(p);
-      }
-      p = e;
-      e = e.parent;
+  /// Notifies the `AnimatedListView` that a new range starting from [from] and [count] long
+  /// has been inserted. Call this method after actually you have updated your list.
+
+  void notifyInsertedRange(int from, int count) {
+    assert(_debugAssertBinded());
+    _interface!.notifyInsertedRange(from, count);
+  }
+
+  /// Notifies the `AnimatedListView` that a range starting from [from] and [count] long
+  /// has been removed. Call this method after actually you have updated your list.
+  /// A new builder [removeItemBuilder] has to be provided in order to build the removed
+  /// items when animating.
+  void notifyRemovedRange(
+    int from,
+    int count,
+    AnimatedWidgetBuilder removeItemBuilder,
+  ) {
+    assert(_debugAssertBinded());
+    _interface!.notifyRemovedRange(from, count, removeItemBuilder);
+  }
+
+  /// Notifies the `AnimatedListView` that a range starting from [from] and [removeCount] long
+  /// has been replaced with a new [insertCount] long range. Call this method after
+  /// you have updated your list.
+  /// A new builder [removeItemBuilder] has to be provided in order to build the replaced
+  /// items when animating.
+  void notifyReplacedRange(
+    int from,
+    int removeCount,
+    int insertCount,
+    AnimatedWidgetBuilder removeItemBuilder,
+  ) {
+    assert(_debugAssertBinded());
+    _interface!.notifyReplacedRange(
+      from,
+      removeCount,
+      insertCount,
+      removeItemBuilder,
+    );
+  }
+
+  /// Notifies the `AnimatedListView` that a range starting from [from] and [count] long
+  /// has been moved to a new location, at [newIndex] position (the new index considers the interval just removed).
+  /// Call this method after you have updated your list.
+  void notifyMovedRange(int from, int count, int newIndex) {
+    assert(_debugAssertBinded());
+    _interface!.notifyMovedRange(from, count, newIndex);
+  }
+
+  /// If more changes to the underlying list need be applied in a row, it is more efficient
+  /// to call this method and notify all the changes within the callback.
+  void batch(VoidCallback callback) {
+    assert(_debugAssertBinded());
+    _interface!.batch(callback);
+  }
+
+  /// Notifies the `AnimatedListView` that a new reoder has begun.
+  /// The [context] has to be provided to help `AnimatedListView` to locate the item
+  /// to be picked up for reordering.
+  /// The attributs [dx] and [dy] are the coordinates relative to the position of the item.
+  ///
+  /// Use this method only if you have decided not to use the
+  /// `AnimatedSliverChildBuilderDelegate.addLongPressReorderable` attribute or the
+  /// `LongPressReorderable` widget (for example if you want to reorder using your
+  /// custom drag handles).
+  ///
+  /// This method could return `false` indicating that the reordering cannot be started.
+  bool notifyStartReorder(BuildContext context, double dx, double dy) {
+    assert(_debugAssertBinded());
+    return _interface!.notifyStartReorder(context, dx, dy);
+  }
+
+  /// Notifies the `AnimatedListView` that the dragged item has moved.
+  /// The attributs [dx] and [dy] are the coordinates relative to the original position
+  /// of the item.
+  ///
+  /// Use this method only if you have decided not to use the
+  /// `AnimatedSliverChildBuilderDelegate.addLongPressReorderable` attribute or the
+  /// `LongPressReorderable` widget (for example if you want to reorder using your
+  /// custom drag handles).
+  void notifyUpdateReorder(double dx, double dy) {
+    assert(_debugAssertBinded());
+    _interface!.notifyUpdateReorder(dx, dy);
+  }
+
+  /// Notifies the `AnimatedListView` that the reorder has finished or cancelled
+  /// ([cancel] set to `true`).
+  ///
+  /// Use this method only if you have decided not to use the
+  /// `AnimatedSliverChildBuilderDelegate.addLongPressReorderable` attribute or the
+  /// `LongPressReorderable` widget (for example if you want to reorder using your
+  /// custom drag handles).
+  void notifyStopReorder(bool cancel) {
+    assert(_debugAssertBinded());
+    _interface!.notifyStopReorder(cancel);
+  }
+
+  /// Calculates the box (in pixels) of the item indicated by the [index] provided.
+  ///
+  /// The index of the item refers to the index of the underlying list.
+  ///
+  /// If [absolute] is `false` the offset is relative to the upper edge of the sliver,
+  /// otherwise the offset is relative to the upper edge of the topmost sliver.
+  ///
+  /// For one, you might pass the result to the [ScrollController.jumpTo] or [ScrollController.animateTo] methods
+  /// of a [ScrollController] to scroll to the desired item.
+  ///
+  /// The method returns `null` if the box cannot be calculated. This happens when the item isn't yet diplayed
+  /// (because animations are still in progress) or when the state of the list view has been changed via notifications
+  /// but these changes are not yet taken into account.
+  ///
+  /// Be careful! This method calculates the item box starting from items currently built in the viewport, therefore,
+  /// if the desired item is very far from them, the method could take a long time to return the result
+  /// since it must measure all the intermediate items that are among those of the viewport and the desired one.
+  Rect? computeItemBox(int index, [bool absolute = false]) {
+    assert(_debugAssertBinded());
+    return _interface!.computeItemBox(index, absolute);
+  }
+
+  /// Returns the size of the visible part (in pixels) of a certain item in the list view.
+  ///
+  /// The index of the item refers to the index of the underlying list.
+  ///
+  /// The method returns `null` if the box of the item cannot be calculated. This happens when the item
+  /// isn't yet diplayed or when the state of the list view has been changed via notifications
+  /// but these changes are not yet taken into account.
+  AnimatedListItemVisibility? getItemVisibleSize(int index) {
+    assert(_debugAssertBinded());
+    return _interface!.getItemVisibleSize(index);
+  }
+
+  void _setInterface(AnimatedListControllerDelegate interface) {
+    if (_interface != null) {
+      throw FlutterError(
+        'You are trying to bind this controller to multiple animated list views.\n'
+        'A $runtimeType can only be binded to one list view at a time.',
+      );
     }
-  }
-  return 'UNKNOWN';
-}
-
-extension _Element on Element {
-  Element? get parent {
-    Element? ret;
-    visitAncestorElements((element) {
-      ret = element;
-      return false;
-    });
-    return ret;
-  }
-}
-
-abstract class _PopUpList {
-  double? currentScrollOffset;
-
-  int get popUpBuildCount;
-
-  static var counter = 0;
-  final int debugId;
-
-  _PopUpList() : debugId = counter + 1 {
-    counter++;
+    _interface = interface;
   }
 
-  Widget buildPopUp(BuildContext context, int index, bool measureOnly);
+  void _unsetInterface(AnimatedListControllerDelegate interface) {
+    if (_interface == interface) _interface = null;
+  }
 
-  void Function(double Function(int, int, double) callback)? updateScrollOffset;
+  BuildContext get context => _interface!.context;
 
-  Iterable<_Interval> get intervals;
-
-  int get lastBuildCount;
-  set lastBuildCount(int v);
-
-  bool debugUpdateConsistency(List<_Update> updates) {
+  bool _debugAssertBinded() {
     assert(() {
-      final delta = updates
-          .where((upd) => upd.popUpList == this && !upd.flags.hasPopupDrop)
-          .fold<int>(
-              0, (pv, upd) => pv + upd.newBuildCount - upd.oldBuildCount);
-      return lastBuildCount + delta == popUpBuildCount;
+      if (_interface == null) {
+        throw FlutterError(
+          'This controller was used before it was connected to an animated list view.\n'
+          'Make sure you passed this instance to the listController attribute of an AutomaticAnimatedListView, AnimatedListView, AnimatedSliverList or AnimatedSliverFixedExtentList.',
+        );
+      }
+      return true;
     }());
     return true;
   }
 }
 
-class _ReorderPopUpList extends _PopUpList {
-  final _IntervalList intervalList;
+/// Internal bridge; controller binding is deliberately absent from its public API.
+abstract final class ListControllerBinding {
+  static void attach(
+    AnimatedListController controller,
+    AnimatedListControllerDelegate delegate,
+  ) => controller._setInterface(delegate);
+  static void detach(
+    AnimatedListController controller,
+    AnimatedListControllerDelegate delegate,
+  ) => controller._unsetInterface(delegate);
 
-  _ReorderPopUpList(this.intervalList) {
-    intervalList.popUpList = this;
-  }
-
-  @override
-  Widget buildPopUp(BuildContext context, int index, bool measureOnly) {
-    return intervalList.build(context, index, measureOnly);
-  }
-
-  @override
-  int get popUpBuildCount => intervalList.buildCount;
-
-  @override
-  Iterable<_Interval> get intervals => intervalList;
-
-  @override
-  var lastBuildCount = 1;
-
-  @override
-  String toString() => 'PopUp[$debugId] reorder';
-}
-
-class _MovingPopUpList extends _PopUpList {
-  List<_IntervalList> subLists = [];
-
-  @override
-  int get popUpBuildCount =>
-      subLists.fold<int>(0, (pv, e) => pv + e.buildCount);
-
-  @override
-  Widget buildPopUp(BuildContext context, int index, bool measureOnly) {
-    for (final sl in subLists) {
-      if (index < sl.buildCount) {
-        return sl.build(context, index, measureOnly);
+  static AnimatedListController? controllerOf(BuildContext context) {
+    AnimatedListController? controller;
+    context.visitAncestorElements((element) {
+      if (element is AnimatedListControllerDelegate) {
+        controller = (element as AnimatedListControllerDelegate).listController;
+        return false;
       }
-      index -= sl.buildCount;
-    }
-    throw Exception('this point should never have been reached');
-  }
-
-  @override
-  Iterable<_Interval> get intervals => subLists.expand((e) => e);
-
-  @override
-  var lastBuildCount = 0;
-
-  @override
-  String toString() => 'PopUp[$debugId] subLists=$subLists';
-
-  int buildIndexOf(_IntervalList subList) {
-    assert(subLists.contains(subList));
-    var o = 0;
-    for (final sl in subLists) {
-      if (sl == subList) break;
-      o += sl.buildCount;
-    }
-    return o;
+      return true;
+    });
+    return controller;
   }
 }
-
-class _SizeResult {
-  final int from, to;
-  final double size;
-
-  int get count => to - from;
-
-  const _SizeResult(this.from, this.to, this.size);
-
-  @override
-  String toString() => 'from=$from, to=$to, size=$size';
-}
-
-typedef _UpdateCallback = void Function(
-    _IntervalList list, int index, int oldBuildCount, int newBuildCount);
-
-//
-// Debug
-//
-
-String _spaces = '';
-
-void dbgBegin(String message) {
-  dbgPrint('$message {');
-  _spaces += '    ';
-}
-
-void dbgPrint(String message) {
-  // debugPrintSynchronously('$_spaces$s');
-  io.stderr.writeln('$_spaces$message');
-}
-
-void dbgEnd() {
-  final l = _spaces.length - 4;
-  if (l <= 0) {
-    _spaces = '';
-  } else {
-    _spaces = _spaces.substring(l);
-  }
-  dbgPrint('}');
-}
-
-const DEBUG_ENABLED = false;
-
-void Function(String message) _dbgBegin =
-    kDebugMode && DEBUG_ENABLED ? dbgBegin : (m) {};
-void Function(String message) _dbgPrint =
-    kDebugMode && DEBUG_ENABLED ? dbgPrint : (m) {};
-void Function() _dbgEnd = kDebugMode && DEBUG_ENABLED ? dbgEnd : () {};

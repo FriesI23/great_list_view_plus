@@ -1,0 +1,46 @@
+name: Test CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-test:
+    name: Flutter ${{ matrix.flutter }} checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter: ['3.47.0', '3.47.9']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ matrix.flutter }}
+          cache: true
+      - name: Resolve dependencies
+        run: make bootstrap
+      - name: Create test results directory
+        run: mkdir -p test-results
+      - name: Analyze package and example
+        run: make analyze
+      - name: Run package and example tests
+        if: success() || failure()
+        run: >-
+          make test CI=1
+          MACHINE_OUT=test-results/${{ matrix.flutter }}_test.log
+      - name: Check formatting with the development SDK
+        if: (success() || failure()) && matrix.flutter == '3.47.9'
+        run: make format-check
+      - name: Validate publishing with the development SDK
+        if: (success() || failure()) && matrix.flutter == '3.47.9'
+        run: flutter pub publish --dry-run
+      - uses: actions/upload-artifact@v7
+        if: success() || failure()
+        with:
+          name: flutter-test-results-${{ matrix.flutter }}
+          path: test-results/*_test.log
+          if-no-files-found: warn
+          retention-days: 7
